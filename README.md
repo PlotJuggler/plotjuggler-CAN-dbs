@@ -12,7 +12,7 @@ Using the plugins, One can;
 # Building the CAN plugins
 
 ```
-mkdir build & cd build
+mkdir build; cd build
 cmake ..
 make
 
