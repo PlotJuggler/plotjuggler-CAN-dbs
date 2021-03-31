@@ -32,5 +32,5 @@ public:
 private:
   std::vector<const char *> _extensions;
   std::string _default_time_axis;
-  std::unique_ptr<dbcppp::Network> can_network_;
+  std::unique_ptr<dbcppp::Network> _can_network;
 };

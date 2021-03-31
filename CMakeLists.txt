@@ -29,6 +29,7 @@ find_package(Qt5 REQUIRED COMPONENTS
     Concurrent
     Xml
     Svg
+    SerialBus
 )
 
 find_package(PlotJuggler REQUIRED)
@@ -59,12 +60,21 @@ add_subdirectory(3rdparty/dbcppp)
 
 add_library(DataLoadCAN SHARED
     DataLoadCAN/dataload_can.h
-    DataLoadCAN/dataload_can.cpp )
+    DataLoadCAN/dataload_can.cpp)
 
 target_link_libraries(DataLoadCAN
     ${PJ_LIBRARIES}
     libdbcppp
 )
 
-install(TARGETS DataLoadCAN DESTINATION bin  )
+add_library(DataStreamCAN SHARED
+    DataStreamCAN/datastream_can.h
+    DataStreamCAN/datastream_can.cpp)
+
+target_link_libraries(DataStreamCAN
+    ${PJ_LIBRARIES}
+    libdbcppp
+    Qt5::SerialBus
+)
+install(TARGETS DataLoadCAN DataStreamCAN DESTINATION bin  )
 

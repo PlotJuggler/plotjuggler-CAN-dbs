@@ -28,7 +28,7 @@ bool DataLoadCAN::loadCANDatabase(QString dbc_filename)
   // Get dbc file and add frames to dataMap()
   auto dbc_dialog = QFileDialog::getOpenFileUrl().toLocalFile();
   std::ifstream dbc_file{dbc_dialog.toStdString()};
-  can_network_ = dbcppp::Network::loadDBCFromIs(dbc_file);
+  _can_network = dbcppp::Network::loadDBCFromIs(dbc_file);
 }
 
 QSize DataLoadCAN::inspectFile(QFile *file)
@@ -47,7 +47,7 @@ QSize DataLoadCAN::inspectFile(QFile *file)
   table_size.setHeight(linecount);
   auto dbc_dialog = QFileDialog::getOpenFileUrl().toLocalFile();
   std::ifstream dbc_file{dbc_dialog.toStdString()};
-  can_network_ = dbcppp::Network::loadDBCFromIs(dbc_file);
+  _can_network = dbcppp::Network::loadDBCFromIs(dbc_file);
 
   return table_size;
 }
@@ -94,7 +94,7 @@ bool DataLoadCAN::readDataFromFile(FileLoadInfo *info, PlotDataMapRef &plot_data
   progress_dialog.show();
 
   // Add all signals by name
-  can_network_->forEachMessage([&](const dbcppp::Message &msg) {
+  _can_network->forEachMessage([&](const dbcppp::Message &msg) {
     msg.forEachSignal([&](const dbcppp::Signal &signal) {
       auto str = QString("can_frames/%1/").arg(msg.getId()).toStdString() + signal.getName();
       plot_data.addNumeric(str);
@@ -131,7 +131,7 @@ bool DataLoadCAN::readDataFromFile(FileLoadInfo *info, PlotDataMapRef &plot_data
     uint8_t frameDataBytes[8];
     std::memcpy(frameDataBytes, &frameData, 8);
     std::reverse(frameDataBytes, frameDataBytes + 8);
-    const dbcppp::Message *msg = can_network_->getMessageById(frameId);
+    const dbcppp::Message *msg = _can_network->getMessageById(frameId);
     if (msg)
     {
       msg->forEachSignal([&](const dbcppp::Signal &signal) {
