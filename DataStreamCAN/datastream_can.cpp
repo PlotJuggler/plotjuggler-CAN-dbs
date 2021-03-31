@@ -26,7 +26,7 @@ bool DataStreamCAN::start(QStringList*)
 {
   _running = true;
 
-  // Get dbc file and add frames to dataMap()
+  // Get dbc file
   auto dbc_dialog = QFileDialog::getOpenFileUrl().toLocalFile();
   std::ifstream dbc_file{ dbc_dialog.toStdString() };
   _can_network = dbcppp::Network::loadDBCFromIs(dbc_file);
@@ -37,11 +37,11 @@ bool DataStreamCAN::start(QStringList*)
       auto str = QString("can_frames/%1/").arg(msg.getId()).toStdString() + signal.getName();
       auto it = dataMap().addNumeric(str);
       auto& plot = it->second;
-      plot.pushBack(PlotData::Point(0, 0));  // if not pushed once, data is not visible im PJ, don't know why.
+      plot.pushBack(PlotData::Point(0, 0));  // if not pushed once, data is not visible in PJ, don't know why.
     });
   });
   
-  // Create can device and connect to it.
+  // Create can device and connect to it, this needs to be handled in ui
   QString errorString;
   _can_device = QCanBus::instance()->createDevice(QStringLiteral("socketcan"), QStringLiteral("vcan0"), &errorString);
   
