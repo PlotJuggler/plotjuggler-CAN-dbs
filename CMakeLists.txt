@@ -70,6 +70,7 @@ install(TARGETS DataLoadCAN DESTINATION bin  )
 
 # Build&Install DataStreamCAN only if SerialBus found.
 if(${Qt5SerialBus_FOUND})
+    message("-- Found Qt5::SerialBus, building DataStreamCAN.")
     add_library(DataStreamCAN SHARED
         DataStreamCAN/datastream_can.h
         DataStreamCAN/datastream_can.cpp)
@@ -79,4 +80,6 @@ if(${Qt5SerialBus_FOUND})
         Qt5::SerialBus
     )
     install(TARGETS DataStreamCAN DESTINATION bin  )
+else()
+    message("-- Since Qt5::SerialBus not found, cannot build DataStreamCAN.")
 endif()
