@@ -32,14 +32,17 @@ bool DataStreamCAN::start(QStringList*)
   _can_network = dbcppp::Network::loadDBCFromIs(dbc_file);
   
   // Add all signals by name
-  _can_network->forEachMessage([&](const dbcppp::Message &msg) {
-    msg.forEachSignal([&](const dbcppp::Signal &signal) {
-      auto str = QString("can_frames/%1/").arg(msg.getId()).toStdString() + signal.getName();
-      auto it = dataMap().addNumeric(str);
-      auto& plot = it->second;
-      plot.pushBack(PlotData::Point(0, 0));  // if not pushed once, data is not visible in PJ, don't know why.
+  {
+    std::lock_guard<std::mutex> lock(mutex());
+    _can_network->forEachMessage([&](const dbcppp::Message &msg) {
+      msg.forEachSignal([&](const dbcppp::Signal &signal) {
+        auto str = QString("can_frames/%1/").arg(msg.getId()).toStdString() + signal.getName();
+        auto it = dataMap().addNumeric(str);
+        auto& plot = it->second;
+        plot.pushBack(PlotData::Point(0, 0));  // if not pushed once, data is not visible in PJ, don't know why.
+      });
     });
-  });
+  }
   
   // Create can device and connect to it, this needs to be handled in ui
   QString errorString;

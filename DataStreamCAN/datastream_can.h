@@ -15,23 +15,23 @@ class DataStreamCAN : public PJ::DataStreamer
 
 public:
   DataStreamCAN();
-  virtual bool start(QStringList*) override;
-  virtual void shutdown() override;
-  virtual bool isRunning() const override;
-  virtual ~DataStreamCAN() override;
+  bool start(QStringList*) override;
+  void shutdown() override;
+  bool isRunning() const override;
+  ~DataStreamCAN() override;
 
-  virtual const char* name() const override
+  const char* name() const override
   {
     return "CAN Streamer";
   }
 
-  virtual bool isDebugPlugin() override
+  bool isDebugPlugin() override
   {
     return false;
   }
 
-  virtual bool xmlSaveState(QDomDocument& doc, QDomElement& parent_element) const override;
-  virtual bool xmlLoadState(const QDomElement& parent_element) override;
+  bool xmlSaveState(QDomDocument& doc, QDomElement& parent_element) const override;
+  bool xmlLoadState(const QDomElement& parent_element) override;
 
 private:
   QCanBusDevice *_can_device;
