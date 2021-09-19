@@ -4,8 +4,12 @@
 #include <QCanBus>
 #include <QCanBusFrame>
 #include <thread>
-#include "PlotJuggler/datastreamer_base.h"
 #include <dbcppp/Network.h>
+
+#include "PlotJuggler/datastreamer_base.h"
+
+#include "connectdialog.h"
+
 
 class DataStreamCAN : public PJ::DataStreamer
 {
@@ -33,11 +37,15 @@ public:
   bool xmlSaveState(QDomDocument& doc, QDomElement& parent_element) const override;
   bool xmlLoadState(const QDomElement& parent_element) override;
 
+private slots:
+  void connectCanInterface();
+
 private:
-  QCanBusDevice *_can_device;
-  std::unique_ptr<dbcppp::Network> _can_network;
-  std::thread _thread;
-  bool _running;
+  ConnectDialog *connect_dialog_;
+  QCanBusDevice *can_interface_ = nullptr;
+  std::unique_ptr<dbcppp::Network> can_network_ = nullptr;
+  std::thread thread_;
+  bool running_;
   void loop();
   void pushSingleCycle();
 };
