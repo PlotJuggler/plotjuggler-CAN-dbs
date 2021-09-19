@@ -11,7 +11,7 @@
 
 // Regular expression for log files created by candump -L
 // Captured groups: time, channel, frame_id, payload
-const QRegularExpression canlog_rgx("\\((\\d*\\.\\d*)\\)\\s{1,2}([A-Za-z0-9]*)\\s([0-9a-fA-F]{3,})\\#([0-9a-fA-F]*)");
+const QRegularExpression canlog_rgx("\\((\\d*\\.\\d*)\\)\\s*([\\S]*)\\s([0-9a-fA-F]{3,})\\#([0-9a-fA-F]*)");
 
 DataLoadCAN::DataLoadCAN()
 {
