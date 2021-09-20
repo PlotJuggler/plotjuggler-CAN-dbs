@@ -15,12 +15,12 @@ const QRegularExpression canlog_rgx("\\((\\d*\\.\\d*)\\)\\s*([\\S]*)\\s([0-9a-fA
 
 DataLoadCAN::DataLoadCAN()
 {
-  _extensions.push_back("log");
+  extensions_.push_back("log");
 }
 
 const std::vector<const char *> &DataLoadCAN::compatibleFileExtensions() const
 {
-  return _extensions;
+  return extensions_;
 }
 
 bool DataLoadCAN::loadCANDatabase(QString dbc_filename)
@@ -28,7 +28,7 @@ bool DataLoadCAN::loadCANDatabase(QString dbc_filename)
   // Get dbc file and add frames to dataMap()
   auto dbc_dialog = QFileDialog::getOpenFileUrl().toLocalFile();
   std::ifstream dbc_file{dbc_dialog.toStdString()};
-  _can_network = dbcppp::Network::loadDBCFromIs(dbc_file);
+  can_network_ = dbcppp::Network::loadDBCFromIs(dbc_file);
 }
 
 QSize DataLoadCAN::inspectFile(QFile *file)
@@ -47,7 +47,7 @@ QSize DataLoadCAN::inspectFile(QFile *file)
   table_size.setHeight(linecount);
   auto dbc_dialog = QFileDialog::getOpenFileUrl().toLocalFile();
   std::ifstream dbc_file{dbc_dialog.toStdString()};
-  _can_network = dbcppp::Network::loadDBCFromIs(dbc_file);
+  can_network_ = dbcppp::Network::loadDBCFromIs(dbc_file);
 
   return table_size;
 }
@@ -94,7 +94,7 @@ bool DataLoadCAN::readDataFromFile(FileLoadInfo *info, PlotDataMapRef &plot_data
   progress_dialog.show();
 
   // Add all signals by name
-  _can_network->forEachMessage([&](const dbcppp::Message &msg) {
+  can_network_->forEachMessage([&](const dbcppp::Message &msg) {
     msg.forEachSignal([&](const dbcppp::Signal &signal) {
       auto str = QString("can_frames/%1/").arg(msg.getId()).toStdString() + signal.getName();
       plot_data.addNumeric(str);
@@ -131,7 +131,7 @@ bool DataLoadCAN::readDataFromFile(FileLoadInfo *info, PlotDataMapRef &plot_data
     uint8_t frameDataBytes[8];
     std::memcpy(frameDataBytes, &frameData, 8);
     std::reverse(frameDataBytes, frameDataBytes + 8);
-    const dbcppp::Message *msg = _can_network->getMessageById(frameId);
+    const dbcppp::Message *msg = can_network_->getMessageById(frameId);
     if (msg)
     {
       msg->forEachSignal([&](const dbcppp::Signal &signal) {
@@ -175,7 +175,7 @@ DataLoadCAN::~DataLoadCAN()
 bool DataLoadCAN::xmlSaveState(QDomDocument &doc, QDomElement &parent_element) const
 {
   QDomElement elem = doc.createElement("default");
-  elem.setAttribute("time_axis", _default_time_axis.c_str());
+  elem.setAttribute("time_axis", default_time_axis_.c_str());
 
   parent_element.appendChild(elem);
   return true;
@@ -188,7 +188,7 @@ bool DataLoadCAN::xmlLoadState(const QDomElement &parent_element)
   {
     if (elem.hasAttribute("time_axis"))
     {
-      _default_time_axis = elem.attribute("time_axis").toStdString();
+      default_time_axis_ = elem.attribute("time_axis").toStdString();
       return true;
     }
   }

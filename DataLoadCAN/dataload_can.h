@@ -30,7 +30,7 @@ public:
   virtual bool xmlLoadState(const QDomElement &parent_element) override;
 
 private:
-  std::vector<const char *> _extensions;
-  std::string _default_time_axis;
-  std::unique_ptr<dbcppp::Network> _can_network;
+  std::vector<const char *> extensions_;
+  std::string default_time_axis_;
+  std::unique_ptr<dbcppp::Network> can_network_;
 };

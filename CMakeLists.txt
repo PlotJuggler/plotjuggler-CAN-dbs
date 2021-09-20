@@ -73,7 +73,9 @@ if(${Qt5SerialBus_FOUND})
     message("-- Found Qt5::SerialBus, building DataStreamCAN.")
     add_library(DataStreamCAN SHARED
         DataStreamCAN/datastream_can.h
-        DataStreamCAN/datastream_can.cpp)
+        DataStreamCAN/datastream_can.cpp
+        DataStreamCAN/connectdialog.h
+        DataStreamCAN/connectdialog.cpp)
     target_link_libraries(DataStreamCAN
         ${PJ_LIBRARIES}
         libdbcppp
