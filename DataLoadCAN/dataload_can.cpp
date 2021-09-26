@@ -15,12 +15,12 @@ const QRegularExpression canlog_rgx("\\((\\d*\\.\\d*)\\)\\s*([\\S]*)\\s([0-9a-fA
 
 DataLoadCAN::DataLoadCAN()
 {
-  _extensions.push_back("log");
+  extensions_.push_back("log");
 }
 
 const std::vector<const char *> &DataLoadCAN::compatibleFileExtensions() const
 {
-  return _extensions;
+  return extensions_;
 }
 
 bool DataLoadCAN::loadCANDatabase(QString dbc_filename)
@@ -175,7 +175,7 @@ DataLoadCAN::~DataLoadCAN()
 bool DataLoadCAN::xmlSaveState(QDomDocument &doc, QDomElement &parent_element) const
 {
   QDomElement elem = doc.createElement("default");
-  elem.setAttribute("time_axis", _default_time_axis.c_str());
+  elem.setAttribute("time_axis", default_time_axis_.c_str());
 
   parent_element.appendChild(elem);
   return true;
@@ -188,7 +188,7 @@ bool DataLoadCAN::xmlLoadState(const QDomElement &parent_element)
   {
     if (elem.hasAttribute("time_axis"))
     {
-      _default_time_axis = elem.attribute("time_axis").toStdString();
+      default_time_axis_ = elem.attribute("time_axis").toStdString();
       return true;
     }
   }
