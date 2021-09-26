@@ -10,7 +10,6 @@
 #include <mutex>
 #include <chrono>
 #include <thread>
-#include <math.h>
 
 #include <fstream>
 #include <dbcppp/Network.h>
@@ -19,9 +18,6 @@ using namespace PJ;
 
 DataStreamCAN::DataStreamCAN() : connect_dialog_{new ConnectDialog()}
 {
-
-  //connect(connect_dialog_->okButton, &QPushButton::clicked, this, &DataStreamCAN::start);
-  //connect(connect_dialog_->cancelButton, &QPushButton::clicked, this, &DataStreamCAN::shutdown);
   connect(connect_dialog_, &QDialog::accepted, this, &DataStreamCAN::connectCanInterface);
 }
 
@@ -39,11 +35,6 @@ void DataStreamCAN::connectCanInterface()
                     .arg(errorString);
     return;
   }
-
-  //connect(can_interface_, &QCanBusDevice::errorOccurred,
-  //        this, &MainWindow::receiveError);
-  //connect(can_interface_, &QCanBusDevice::framesReceived,
-  //        this, &DataStreamCAN::pushSingleCycle);
 
   if (p.useConfigurationEnabled)
   {
@@ -150,11 +141,11 @@ void DataStreamCAN::pushSingleCycle()
 void DataStreamCAN::loop()
 {
   // Block until both are initalized
-  while(can_interface_ == nullptr || can_network_ == nullptr)
+  while (can_interface_ == nullptr || can_network_ == nullptr)
   {
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
   }
-   // Add all signals by name
+  // Add all signals by name
   {
     std::lock_guard<std::mutex> lock(mutex());
     can_network_->forEachMessage([&](const dbcppp::Message &msg)

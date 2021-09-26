@@ -61,7 +61,8 @@ add_subdirectory(3rdparty/dbcppp)
 
 add_library(DataLoadCAN SHARED
     DataLoadCAN/dataload_can.h
-    DataLoadCAN/dataload_can.cpp)
+    DataLoadCAN/dataload_can.cpp )
+
 target_link_libraries(DataLoadCAN
     ${PJ_LIBRARIES}
     libdbcppp
