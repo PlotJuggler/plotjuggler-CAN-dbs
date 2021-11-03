@@ -52,7 +52,11 @@ void DataStreamCAN::connectCanInterface()
   else
   {
     std::ifstream dbc_file{p.canDatabaseLocation.toStdString()};
-    can_network_ = dbcppp::Network::loadDBCFromIs(dbc_file);
+    can_network_ = dbcppp::INetwork::LoadDBCFromIs(dbc_file);;
+    for (const dbcppp::IMessage& msg : can_network_->Messages())
+    {
+      messages_.insert(std::make_pair(msg.Id(), &msg));
+    }
 
     QVariant bitRate = can_interface_->configurationParameter(QCanBusDevice::BitRateKey);
     if (bitRate.isValid())
@@ -118,21 +122,22 @@ void DataStreamCAN::pushSingleCycle()
     if (can_network_)
     {
       double now = frame.timeStamp().seconds() + frame.timeStamp().microSeconds() * 1e-6;
-      const dbcppp::Message *msg = can_network_->getMessageById(frame.frameId());
-      if (msg)
+      auto messages_iter = messages_.find(frame.frameId());
+      if (messages_iter != messages_.end())
       {
-        msg->forEachSignal([&](const dbcppp::Signal &signal)
-                           {
-                             double decoded_val = signal.rawToPhys(signal.decode(frame.payload().data()));
-                             auto str = QString("can_frames/%1/").arg(msg->getId()).toStdString() + signal.getName();
-                             //qCritical() << str.c_str();
-                             auto it = dataMap().numeric.find(str);
-                             if (it != dataMap().numeric.end())
-                             {
-                               auto &plot = it->second;
-                               plot.pushBack({now, decoded_val});
-                             }
-                           });
+        const dbcppp::IMessage* msg = messages_iter->second;
+        for (const dbcppp::ISignal& signal : msg->Signals())
+        {
+          double decoded_val = signal.RawToPhys(signal.Decode(frame.payload().data()));
+          auto str = QString("can_frames/%1/").arg(msg->Id()).toStdString() + signal.Name();
+          //qCritical() << str.c_str();
+          auto it = dataMap().numeric.find(str);
+          if (it != dataMap().numeric.end())
+          {
+            auto &plot = it->second;
+            plot.pushBack({now, decoded_val});
+          }
+        }
       }
     }
   }
@@ -148,16 +153,18 @@ void DataStreamCAN::loop()
   // Add all signals by name
   {
     std::lock_guard<std::mutex> lock(mutex());
-    can_network_->forEachMessage([&](const dbcppp::Message &msg)
-                                 {
-                                   msg.forEachSignal([&](const dbcppp::Signal &signal)
-                                                     {
-                                                       auto str = QString("can_frames/%1/").arg(msg.getId()).toStdString() + signal.getName();
-                                                       auto it = dataMap().addNumeric(str);
-                                                       auto &plot = it->second;
-                                                       plot.pushBack(PlotData::Point(0, 0)); // if not pushed once, data is not visible in PJ, don't know why.
-                                                     });
-                                 });
+    // Add all signals by name
+    for(auto it = messages_.begin(); it != messages_.end(); it++)
+    {
+      const dbcppp::IMessage* msg = it->second;
+      for (const dbcppp::ISignal& signal : msg->Signals())
+      {
+        auto str = QString("can_frames/%1/").arg(msg->Id()).toStdString() + signal.Name();
+        auto it = dataMap().addNumeric(str);
+        auto &plot = it->second;
+        plot.pushBack(PlotData::Point(0, 0)); // if not pushed once, data is not visible in PJ, don't know why.
+      }
+    }
   }
   running_ = true;
   while (running_)

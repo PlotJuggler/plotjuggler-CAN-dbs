@@ -43,7 +43,8 @@ private slots:
 private:
   ConnectDialog *connect_dialog_;
   QCanBusDevice *can_interface_ = nullptr;
-  std::unique_ptr<dbcppp::Network> can_network_ = nullptr;
+  std::unique_ptr<dbcppp::INetwork> can_network_ = nullptr;
+  std::unordered_map<uint64_t, const dbcppp::IMessage*> messages_;
   std::thread thread_;
   bool running_;
   void loop();
