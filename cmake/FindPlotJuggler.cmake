@@ -29,7 +29,7 @@ endif()
 
 find_library(PlotJuggler_LIBRARY
 	NAMES
-        plotjuggler_plugin_base
+        plotjuggler_base
 	PATHS
         "${PlotJuggler_ROOT_DIR}"
 	PATH_SUFFIXES
