@@ -25,7 +25,7 @@ cmake ..
 make -j
 sudo make install
 ```
-After successfull installation of PlotJuggler, one can install DataLoadCAN and DataStreamCAN plugins as follows.
+After successfull installation of PlotJuggler, one can build DataLoadCAN and DataStreamCAN plugins as follows.
 ```
 git clone --recurse-submodules https://github.com/PlotJuggler/plotjuggler-CAN-dbs.git
 cd plotjuggler-CAN-dbs
