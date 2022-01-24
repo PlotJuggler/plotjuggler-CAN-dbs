@@ -32,5 +32,6 @@ public:
 private:
   std::vector<const char *> extensions_;
   std::string default_time_axis_;
-  std::unique_ptr<dbcppp::Network> can_network_;
+  std::unique_ptr<dbcppp::INetwork> can_network_;
+  std::unordered_map<uint64_t, const dbcppp::IMessage*> messages_;
 };

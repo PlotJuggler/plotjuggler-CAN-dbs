@@ -7,7 +7,9 @@
 #include <QProgressDialog>
 #include <QFileDialog>
 #include <QRegularExpression>
-#include "fstream"
+
+#include <fstream>
+#include <cstring>
 
 // Regular expression for log files created by candump -L
 // Captured groups: time, channel, frame_id, payload
@@ -28,7 +30,7 @@ bool DataLoadCAN::loadCANDatabase(QString dbc_filename)
   // Get dbc file and add frames to dataMap()
   auto dbc_dialog = QFileDialog::getOpenFileUrl().toLocalFile();
   std::ifstream dbc_file{dbc_dialog.toStdString()};
-  can_network_ = dbcppp::Network::loadDBCFromIs(dbc_file);
+  can_network_ = dbcppp::INetwork::LoadDBCFromIs(dbc_file);
 }
 
 QSize DataLoadCAN::inspectFile(QFile *file)
@@ -47,7 +49,11 @@ QSize DataLoadCAN::inspectFile(QFile *file)
   table_size.setHeight(linecount);
   auto dbc_dialog = QFileDialog::getOpenFileUrl().toLocalFile();
   std::ifstream dbc_file{dbc_dialog.toStdString()};
-  can_network_ = dbcppp::Network::loadDBCFromIs(dbc_file);
+  can_network_ = dbcppp::INetwork::LoadDBCFromIs(dbc_file);
+  for (const dbcppp::IMessage& msg : can_network_->Messages())
+  {
+    messages_.insert(std::make_pair(msg.Id(), &msg));
+  }
 
   return table_size;
 }
@@ -94,12 +100,15 @@ bool DataLoadCAN::readDataFromFile(FileLoadInfo *info, PlotDataMapRef &plot_data
   progress_dialog.show();
 
   // Add all signals by name
-  can_network_->forEachMessage([&](const dbcppp::Message &msg) {
-    msg.forEachSignal([&](const dbcppp::Signal &signal) {
-      auto str = QString("can_frames/%1/").arg(msg.getId()).toStdString() + signal.getName();
+  for(auto it = messages_.begin(); it != messages_.end(); it++)
+  {
+    const dbcppp::IMessage* msg = it->second;
+    for (const dbcppp::ISignal& signal : msg->Signals())
+    {
+      auto str = QString("can_frames/%1/").arg(msg->Id()).toStdString() + signal.Name();
       plot_data.addNumeric(str);
-    });
-  });
+    }
+  }
 
   bool monotonic_warning = false;
   // To have . as decimal seperator, save current locale and change it.
@@ -131,19 +140,21 @@ bool DataLoadCAN::readDataFromFile(FileLoadInfo *info, PlotDataMapRef &plot_data
     uint8_t frameDataBytes[8];
     std::memcpy(frameDataBytes, &frameData, 8);
     std::reverse(frameDataBytes, frameDataBytes + 8);
-    const dbcppp::Message *msg = can_network_->getMessageById(frameId);
-    if (msg)
+    auto messages_iter = messages_.find(frameId);
+    if (messages_iter != messages_.end())
     {
-      msg->forEachSignal([&](const dbcppp::Signal &signal) {
-        double decoded_val = signal.rawToPhys(signal.decode(frameDataBytes));
-        auto str = QString("can_frames/%1/").arg(frameId).toStdString() + signal.getName();
+      const dbcppp::IMessage* msg = messages_iter->second;
+      for (const dbcppp::ISignal& signal : msg->Signals())
+      {
+        double decoded_val = signal.RawToPhys(signal.Decode(frameDataBytes));
+        auto str = QString("can_frames/%1/").arg(frameId).toStdString() + signal.Name();
         auto it = plot_data.numeric.find(str);
         if (it != plot_data.numeric.end())
         {
           auto &plot = it->second;
           plot.pushBack(PlotData::Point(frameTime, decoded_val));
         }
-      });
+      }
     }
   }
   // Restore locale setting
