@@ -3,7 +3,7 @@ Plugins to visualize CAN .dbs files and streams in PlotJuggler.
 
 Using the plugins, One can;
   * Visualize CAN logs created by `candump -L` in PlotJuggler using a can database file (for ex. .dbc)
-  * Visualize CAN streams (yet to come)
+  * Visualize CAN streams
 
 # Prerequisites
   * Boost (1.72 or later)
