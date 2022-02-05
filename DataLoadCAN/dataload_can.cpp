@@ -34,6 +34,7 @@ bool DataLoadCAN::loadCANDatabase(QString dbc_filename)
     QUrl(),tr("CAN database (*.dbc)")).toLocalFile();
   std::ifstream dbc_file{dbc_dialog.toStdString()};
   can_network_ = dbcppp::INetwork::LoadDBCFromIs(dbc_file);
+  messages_.clear();
   for (const dbcppp::IMessage& msg : can_network_->Messages())
   {
     messages_.insert(std::make_pair(msg.Id(), &msg));
@@ -82,11 +83,9 @@ bool DataLoadCAN::readDataFromFile(FileLoadInfo *info, PlotDataMapRef &plot_data
   const int columncount = table_size.width();
   file.close();
 
-  loadCANDatabase("FilenameDoesNotExist");
+  loadCANDatabase("FilenameNotUsed");
   file.open(QFile::ReadOnly);
   QTextStream inB(&file);
-
-  std::vector<PlotData *> plots_vector;
 
   bool interrupted = false;
 
