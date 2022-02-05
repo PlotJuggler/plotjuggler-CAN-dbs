@@ -52,7 +52,8 @@ void DataStreamCAN::connectCanInterface()
   else
   {
     std::ifstream dbc_file{p.canDatabaseLocation.toStdString()};
-    can_network_ = dbcppp::INetwork::LoadDBCFromIs(dbc_file);;
+    can_network_ = dbcppp::INetwork::LoadDBCFromIs(dbc_file);
+    messages_.clear();
     for (const dbcppp::IMessage& msg : can_network_->Messages())
     {
       messages_.insert(std::make_pair(msg.Id(), &msg));

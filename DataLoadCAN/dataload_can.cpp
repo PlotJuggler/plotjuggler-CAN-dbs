@@ -28,9 +28,17 @@ const std::vector<const char *> &DataLoadCAN::compatibleFileExtensions() const
 bool DataLoadCAN::loadCANDatabase(QString dbc_filename)
 {
   // Get dbc file and add frames to dataMap()
-  auto dbc_dialog = QFileDialog::getOpenFileUrl().toLocalFile();
+  auto dbc_dialog = QFileDialog::getOpenFileUrl(
+    Q_NULLPTR,
+    tr("Select CAN database"),
+    QUrl(),tr("CAN database (*.dbc)")).toLocalFile();
   std::ifstream dbc_file{dbc_dialog.toStdString()};
   can_network_ = dbcppp::INetwork::LoadDBCFromIs(dbc_file);
+  messages_.clear();
+  for (const dbcppp::IMessage& msg : can_network_->Messages())
+  {
+    messages_.insert(std::make_pair(msg.Id(), &msg));
+  }
 }
 
 QSize DataLoadCAN::inspectFile(QFile *file)
@@ -47,13 +55,6 @@ QSize DataLoadCAN::inspectFile(QFile *file)
   QSize table_size;
   table_size.setWidth(4);
   table_size.setHeight(linecount);
-  auto dbc_dialog = QFileDialog::getOpenFileUrl().toLocalFile();
-  std::ifstream dbc_file{dbc_dialog.toStdString()};
-  can_network_ = dbcppp::INetwork::LoadDBCFromIs(dbc_file);
-  for (const dbcppp::IMessage& msg : can_network_->Messages())
-  {
-    messages_.insert(std::make_pair(msg.Id(), &msg));
-  }
 
   return table_size;
 }
@@ -80,12 +81,11 @@ bool DataLoadCAN::readDataFromFile(FileLoadInfo *info, PlotDataMapRef &plot_data
   const QSize table_size = inspectFile(&file);
   const int tot_lines = table_size.height() - 1;
   const int columncount = table_size.width();
-
   file.close();
+
+  loadCANDatabase("FilenameNotUsed");
   file.open(QFile::ReadOnly);
   QTextStream inB(&file);
-
-  std::vector<PlotData *> plots_vector;
 
   bool interrupted = false;
 
@@ -154,6 +154,17 @@ bool DataLoadCAN::readDataFromFile(FileLoadInfo *info, PlotDataMapRef &plot_data
           auto &plot = it->second;
           plot.pushBack(PlotData::Point(frameTime, decoded_val));
         }
+      }
+    }
+    //------ progress dialog --------------
+    if (linecount++ % 100 == 0)
+    {
+      progress_dialog.setValue(linecount);
+      QApplication::processEvents();
+
+      if (progress_dialog.wasCanceled())
+      {
+        return false;
       }
     }
   }

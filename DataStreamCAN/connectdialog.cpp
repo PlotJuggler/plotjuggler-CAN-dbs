@@ -235,7 +235,10 @@ void ConnectDialog::updateSettings()
 
 void ConnectDialog::importDatabaseLocation()
 {
-    m_currentSettings.canDatabaseLocation = QFileDialog::getOpenFileUrl().toLocalFile();
+    m_currentSettings.canDatabaseLocation = QFileDialog::getOpenFileUrl(
+        Q_NULLPTR,
+        tr("Select CAN database"),
+        QUrl(),tr("CAN database (*.dbc)")).toLocalFile();
     // Since file is gotten, enable ok button.
     m_ui->okButton->setEnabled(true);
 }
