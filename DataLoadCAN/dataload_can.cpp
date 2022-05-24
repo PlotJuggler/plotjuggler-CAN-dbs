@@ -13,7 +13,7 @@
 
 // Regular expression for log files created by candump -L
 // Captured groups: time, channel, frame_id, payload
-const QRegularExpression canlog_rgx("\\((\\d*\\.\\d*)\\)\\s*([\\S]*)\\s([0-9a-fA-F]{3,})\\#([0-9a-fA-F]*)");
+const QRegularExpression canlog_rgx("\\((\\d*\\.\\d*)\\)\\s*([\\S]*)\\s*([0-9a-fA-F]{3,8})\\#([0-9a-fA-F]*)");
 
 DataLoadCAN::DataLoadCAN()
 {
@@ -119,6 +119,10 @@ bool DataLoadCAN::readDataFromFile(FileLoadInfo *info, PlotDataMapRef &plot_data
     QString line = inB.readLine();
     static QRegularExpressionMatchIterator rxIterator;
     rxIterator = canlog_rgx.globalMatch(line);
+    if (!rxIterator.hasNext())
+    {
+      continue; // skip invalid lines
+    }
     QRegularExpressionMatch canFrame = rxIterator.next();
     uint64_t frameId = std::stoul(canFrame.captured(3).toStdString(), 0, 16);
     double frameTime = std::stod(canFrame.captured(1).toStdString());
