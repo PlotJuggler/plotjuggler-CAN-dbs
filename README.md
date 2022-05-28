@@ -39,6 +39,10 @@ make
 
 After building the plugins, one needs to include build directory to the plugins directory of the PlotJuggler.
 
+App -> Preferences -> Plugins
+
+![CanPluginInclude](docs/CanPluginInclude.png "CanPluginInclude snapshot")
+
 ## DataLoadCAN
 
 If DataLoadCAN plugin is loaded, you will be able to import `.log` files. Currently, no UI is developed, so in order to choose can database file (`.dbc`), another file dialog will be opened, select the database you want to use.
