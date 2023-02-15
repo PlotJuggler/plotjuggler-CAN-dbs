@@ -4,11 +4,11 @@
 #include <QCanBus>
 #include <QCanBusFrame>
 #include <thread>
-#include <dbcppp/Network.h>
 
-#include "PlotJuggler/datastreamer_base.h"
+#include <PlotJuggler/datastreamer_base.h>
 
 #include "connectdialog.h"
+#include "../PluginsCommonCAN/CanFrameProcessor.h"
 
 
 class DataStreamCAN : public PJ::DataStreamer
@@ -43,8 +43,8 @@ private slots:
 private:
   ConnectDialog *connect_dialog_;
   QCanBusDevice *can_interface_ = nullptr;
-  std::unique_ptr<dbcppp::INetwork> can_network_ = nullptr;
-  std::unordered_map<uint64_t, const dbcppp::IMessage*> messages_;
+  std::unique_ptr<CanFrameProcessor> frame_processor_;
+
   std::thread thread_;
   bool running_;
   void loop();

@@ -1,4 +1,3 @@
-#include "dataload_can.h"
 #include <QTextStream>
 #include <QFile>
 #include <QMessageBox>
@@ -10,6 +9,7 @@
 
 #include <fstream>
 #include <cstring>
+#include "dataload_can.h"
 
 // Regular expression for log files created by candump -L
 // Captured groups: time, channel, frame_id, payload
@@ -25,7 +25,7 @@ const std::vector<const char *> &DataLoadCAN::compatibleFileExtensions() const
   return extensions_;
 }
 
-bool DataLoadCAN::loadCANDatabase(QString dbc_filename)
+bool DataLoadCAN::loadCANDatabase(PlotDataMapRef &plot_data_map)
 {
   // Get dbc file and add frames to dataMap()
   auto dbc_dialog = QFileDialog::getOpenFileUrl(
@@ -33,12 +33,7 @@ bool DataLoadCAN::loadCANDatabase(QString dbc_filename)
     tr("Select CAN database"),
     QUrl(),tr("CAN database (*.dbc)")).toLocalFile();
   std::ifstream dbc_file{dbc_dialog.toStdString()};
-  can_network_ = dbcppp::INetwork::LoadDBCFromIs(dbc_file);
-  messages_.clear();
-  for (const dbcppp::IMessage& msg : can_network_->Messages())
-  {
-    messages_.insert(std::make_pair(msg.Id(), &msg));
-  }
+  frame_processor_ = std::make_unique<CanFrameProcessor>(dbc_file, plot_data_map, CanFrameProcessor::RAW);
 }
 
 QSize DataLoadCAN::inspectFile(QFile *file)
@@ -59,21 +54,21 @@ QSize DataLoadCAN::inspectFile(QFile *file)
   return table_size;
 }
 
-bool DataLoadCAN::readDataFromFile(FileLoadInfo *info, PlotDataMapRef &plot_data)
+bool DataLoadCAN::readDataFromFile(FileLoadInfo *fileload_info, PlotDataMapRef &plot_data_map)
 {
   bool use_provided_configuration = false;
 
-  if (info->plugin_config.hasChildNodes())
+  if (fileload_info->plugin_config.hasChildNodes())
   {
     use_provided_configuration = true;
-    xmlLoadState(info->plugin_config.firstChildElement());
+    xmlLoadState(fileload_info->plugin_config.firstChildElement());
   }
 
   const int TIME_INDEX_NOT_DEFINED = -2;
 
   int time_index = TIME_INDEX_NOT_DEFINED;
 
-  QFile file(info->filename);
+  QFile file(fileload_info->filename);
   file.open(QFile::ReadOnly);
 
   std::vector<std::string> column_names;
@@ -83,7 +78,7 @@ bool DataLoadCAN::readDataFromFile(FileLoadInfo *info, PlotDataMapRef &plot_data
   const int columncount = table_size.width();
   file.close();
 
-  loadCANDatabase("FilenameNotUsed");
+  loadCANDatabase(plot_data_map);
   file.open(QFile::ReadOnly);
   QTextStream inB(&file);
 
@@ -98,17 +93,6 @@ bool DataLoadCAN::readDataFromFile(FileLoadInfo *info, PlotDataMapRef &plot_data
   progress_dialog.setAutoClose(true);
   progress_dialog.setAutoReset(true);
   progress_dialog.show();
-
-  // Add all signals by name
-  for(auto it = messages_.begin(); it != messages_.end(); it++)
-  {
-    const dbcppp::IMessage* msg = it->second;
-    for (const dbcppp::ISignal& signal : msg->Signals())
-    {
-      auto str = QString("can_frames/%1/").arg(msg->Id()).toStdString() + signal.Name();
-      plot_data.addNumeric(str);
-    }
-  }
 
   bool monotonic_warning = false;
   // To have . as decimal seperator, save current locale and change it.
@@ -144,22 +128,7 @@ bool DataLoadCAN::readDataFromFile(FileLoadInfo *info, PlotDataMapRef &plot_data
     uint8_t frameDataBytes[8];
     std::memcpy(frameDataBytes, &frameData, 8);
     std::reverse(frameDataBytes, frameDataBytes + 8);
-    auto messages_iter = messages_.find(frameId);
-    if (messages_iter != messages_.end())
-    {
-      const dbcppp::IMessage* msg = messages_iter->second;
-      for (const dbcppp::ISignal& signal : msg->Signals())
-      {
-        double decoded_val = signal.RawToPhys(signal.Decode(frameDataBytes));
-        auto str = QString("can_frames/%1/").arg(frameId).toStdString() + signal.Name();
-        auto it = plot_data.numeric.find(str);
-        if (it != plot_data.numeric.end())
-        {
-          auto &plot = it->second;
-          plot.pushBack(PlotData::Point(frameTime, decoded_val));
-        }
-      }
-    }
+    frame_processor_->ProcessCanFrame(frameId, frameDataBytes, 8, frameTime);
     //------ progress dialog --------------
     if (linecount++ % 100 == 0)
     {
@@ -179,7 +148,7 @@ bool DataLoadCAN::readDataFromFile(FileLoadInfo *info, PlotDataMapRef &plot_data
   if (interrupted)
   {
     progress_dialog.cancel();
-    plot_data.numeric.clear();
+    plot_data_map.numeric.clear();
   }
 
   if (monotonic_warning)

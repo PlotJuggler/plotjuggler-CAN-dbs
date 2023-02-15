@@ -2,8 +2,8 @@
 
 #include <QObject>
 #include <QtPlugin>
-#include "PlotJuggler/dataloader_base.h"
-#include <dbcppp/Network.h>
+#include <PlotJuggler/dataloader_base.h>
+#include "../PluginsCommonCAN/CanFrameProcessor.h"
 
 using namespace PJ;
 
@@ -17,8 +17,8 @@ public:
   DataLoadCAN();
   virtual const std::vector<const char *> &compatibleFileExtensions() const override;
   virtual QSize inspectFile(QFile *file);
-  virtual bool readDataFromFile(PJ::FileLoadInfo *fileload_info, PlotDataMapRef &destination) override;
-  virtual bool loadCANDatabase(QString dbc_filename);
+  virtual bool readDataFromFile(FileLoadInfo *fileload_info, PlotDataMapRef &plot_data_map) override;
+  virtual bool loadCANDatabase(PlotDataMapRef &plot_data_map);
   virtual ~DataLoadCAN();
 
   virtual const char *name() const override
@@ -32,6 +32,5 @@ public:
 private:
   std::vector<const char *> extensions_;
   std::string default_time_axis_;
-  std::unique_ptr<dbcppp::INetwork> can_network_;
-  std::unordered_map<uint64_t, const dbcppp::IMessage*> messages_;
+  std::unique_ptr<CanFrameProcessor> frame_processor_;
 };
