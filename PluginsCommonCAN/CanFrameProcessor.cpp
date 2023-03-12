@@ -40,6 +40,10 @@ bool CanFrameProcessor::ProcessCanFrame(const uint32_t frame_id, const uint8_t* 
         return false;
     }
   }
+  else
+  {
+    return false;
+  }
 }
 
 bool CanFrameProcessor::ProcessCanFrameRaw(const uint32_t frame_id, const uint8_t* data_ptr, const size_t data_len,
@@ -49,25 +53,35 @@ bool CanFrameProcessor::ProcessCanFrameRaw(const uint32_t frame_id, const uint8_
   if (messages_iter != messages_.end())
   {
     const dbcppp::IMessage* msg = messages_iter->second;
-    for (const dbcppp::ISignal& signal : msg->Signals())
+    for (const dbcppp::ISignal& sig : msg->Signals())
     {
-      double decoded_val = signal.RawToPhys(signal.Decode(data_ptr));
-      auto str = QString("can_frames/%1/%2")
-                     .arg(QString::number(msg->Id()), QString::fromStdString(signal.Name()))
-                     .toStdString();
-      // qCritical() << str.c_str();
-      auto it = data_map_.numeric.find(str);
-      if (it != data_map_.numeric.end())
+      const dbcppp::ISignal* mux_sig = msg->MuxSignal();
+      if (sig.MultiplexerIndicator() != dbcppp::ISignal::EMultiplexer::MuxValue ||
+          (mux_sig && (mux_sig->Decode(data_ptr) == sig.MultiplexerSwitchValue())))
       {
-        auto& plot = it->second;
-        plot.pushBack({ timestamp_secs, decoded_val });
-      }
-      else
-      {
-        auto& plot = data_map_.addNumeric(str)->second;
-        plot.pushBack({ timestamp_secs, decoded_val });
+        double decoded_val = sig.RawToPhys(sig.Decode(data_ptr));
+        auto str = QString("can_frames/%1/%2")
+                       .arg(QString::number(msg->Id()), QString::fromStdString(sig.Name()))
+                       .toStdString();
+        // qCritical() << str.c_str();
+        auto it = data_map_.numeric.find(str);
+        if (it != data_map_.numeric.end())
+        {
+          auto& plot = it->second;
+          plot.pushBack({ timestamp_secs, decoded_val });
+        }
+        else
+        {
+          auto& plot = data_map_.addNumeric(str)->second;
+          plot.pushBack({ timestamp_secs, decoded_val });
+        }
       }
     }
+    return true;
+  }
+  else
+  {
+    return false;
   }
 }
 bool CanFrameProcessor::ProcessCanFrameN2k(const uint32_t frame_id, const uint8_t* data_ptr, const size_t data_len,
@@ -129,24 +143,29 @@ void CanFrameProcessor::ForwardN2kSignalsToPlot(const N2kMsgInterface& n2k_msg)
   {
     const dbcppp::IMessage* msg = messages_iter->second;
     // qCritical() << "msg_name:" << QString::fromStdString(msg->Name());
-    for (const dbcppp::ISignal& signal : msg->Signals())
+    for (const dbcppp::ISignal& sig : msg->Signals())
     {
-      double decoded_val = signal.RawToPhys(signal.Decode(n2k_msg.GetDataPtr()));
-      auto str = QString("n2k_msg/%1/%2/%3")
-                     .arg(QString::fromStdString(msg->Name()), QString::number(n2k_msg.GetSourceAddr()),
-                          QString::fromStdString(signal.Name()))
-                     .toStdString();
-      // qCritical() << str.c_str();
-      auto it = data_map_.numeric.find(str);
-      if (it != data_map_.numeric.end())
+      const dbcppp::ISignal* mux_sig = msg->MuxSignal();
+      if (sig.MultiplexerIndicator() != dbcppp::ISignal::EMultiplexer::MuxValue ||
+          (mux_sig && (mux_sig->Decode(n2k_msg.GetDataPtr()) == sig.MultiplexerSwitchValue())))
       {
-        auto& plot = it->second;
-        plot.pushBack({ n2k_msg.GetTimeStamp(), decoded_val });
-      }
-      else
-      {
-        auto& plot = data_map_.addNumeric(str)->second;
-        plot.pushBack({ n2k_msg.GetTimeStamp(), decoded_val });
+        double decoded_val = sig.RawToPhys(sig.Decode(n2k_msg.GetDataPtr()));
+        auto str = QString("n2k_msg/%1/%2/%3")
+                       .arg(QString::fromStdString(msg->Name()), QString::number(n2k_msg.GetSourceAddr()),
+                            QString::fromStdString(sig.Name()))
+                       .toStdString();
+        // qCritical() << str.c_str();
+        auto it = data_map_.numeric.find(str);
+        if (it != data_map_.numeric.end())
+        {
+          auto& plot = it->second;
+          plot.pushBack({ n2k_msg.GetTimeStamp(), decoded_val });
+        }
+        else
+        {
+          auto& plot = data_map_.addNumeric(str)->second;
+          plot.pushBack({ n2k_msg.GetTimeStamp(), decoded_val });
+        }
       }
     }
   }
