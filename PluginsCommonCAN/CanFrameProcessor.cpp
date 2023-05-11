@@ -137,6 +137,12 @@ void CanFrameProcessor::ForwardN2kSignalsToPlot(const N2kMsgInterface& n2k_msg)
 {
   // Create frame_id with priority 6 and source address null, since it is the way dbc is defined, is it always?
   uint32_t dbc_id = (n2k_msg.GetPgn() << 8) | 0xFE | (0x06 << 26) | 0x80000000;
+  if (n2k_msg.GetPduFormat() < 240)
+  {
+    // PDU Format 1, PGN contains destination address
+    // clear destination address, since it is the way it defined in the dbc
+    dbc_id &= (~0xFF00u);
+  }
   // qCritical() << "frame_id:" << QString::number(dbc_id) << "\tcan_id:" << QString::number(n2k_msg.GetFrameId());
   auto messages_iter = messages_.find(dbc_id);
   if (messages_iter != messages_.end())
@@ -150,12 +156,26 @@ void CanFrameProcessor::ForwardN2kSignalsToPlot(const N2kMsgInterface& n2k_msg)
           (mux_sig && (mux_sig->Decode(n2k_msg.GetDataPtr()) == sig.MultiplexerSwitchValue())))
       {
         double decoded_val = sig.RawToPhys(sig.Decode(n2k_msg.GetDataPtr()));
-        auto str = QString("n2k_msg/%1/%2/%3")
-                       .arg(QString::fromStdString(msg->Name()), QString::number(n2k_msg.GetSourceAddr()),
-                            QString::fromStdString(sig.Name()))
-                       .toStdString();
+        std::string ts_name;
+        if (n2k_msg.GetPduFormat() < 240)
+        {
+          auto destination_qstr = QString("%1").arg(n2k_msg.GetPduSpecific(), 2, 16, QLatin1Char('0')).toUpper();
+          ts_name = QString("n2k_msg/PDUF1/%1/0x%2/0x%3/%4")
+                        .arg(QString::fromStdString(msg->Name()),
+                             QString("%1").arg(n2k_msg.GetSourceAddr(), 2, 16, QLatin1Char('0')).toUpper(),
+                             destination_qstr, QString::fromStdString(sig.Name()))
+                        .toStdString();
+        }
+        else
+        {
+          ts_name = QString("n2k_msg/PDUF2/%1/0x%2/%3")
+                        .arg(QString::fromStdString(msg->Name()),
+                             QString("%1").arg(n2k_msg.GetSourceAddr(), 2, 16, QLatin1Char('0')).toUpper(),
+                             QString::fromStdString(sig.Name()))
+                        .toStdString();
+        }
         // qCritical() << str.c_str();
-        auto it = data_map_.numeric.find(str);
+        auto it = data_map_.numeric.find(ts_name);
         if (it != data_map_.numeric.end())
         {
           auto& plot = it->second;
@@ -163,7 +183,7 @@ void CanFrameProcessor::ForwardN2kSignalsToPlot(const N2kMsgInterface& n2k_msg)
         }
         else
         {
-          auto& plot = data_map_.addNumeric(str)->second;
+          auto& plot = data_map_.addNumeric(ts_name)->second;
           plot.pushBack({ n2k_msg.GetTimeStamp(), decoded_val });
         }
       }
