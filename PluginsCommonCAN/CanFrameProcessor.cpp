@@ -160,16 +160,18 @@ void CanFrameProcessor::ForwardN2kSignalsToPlot(const N2kMsgInterface& n2k_msg)
         if (n2k_msg.GetPduFormat() < 240)
         {
           auto destination_qstr = QString("%1").arg(n2k_msg.GetPduSpecific(), 2, 16, QLatin1Char('0')).toUpper();
-          ts_name = QString("n2k_msg/PDUF1/%1/0x%2/0x%3/%4")
+          ts_name = QString("n2k_msg/PDUF1/%1 (0x%2)/0x%3/0x%4/%5")
                         .arg(QString::fromStdString(msg->Name()),
+                             QString("%1").arg(n2k_msg.GetPgn() & (~0xFFu), 4, 16, QLatin1Char('0')).toUpper(),
                              QString("%1").arg(n2k_msg.GetSourceAddr(), 2, 16, QLatin1Char('0')).toUpper(),
                              destination_qstr, QString::fromStdString(sig.Name()))
                         .toStdString();
         }
         else
         {
-          ts_name = QString("n2k_msg/PDUF2/%1/0x%2/%3")
+          ts_name = QString("n2k_msg/PDUF2/%1 (0x%2)/0x%3/%4")
                         .arg(QString::fromStdString(msg->Name()),
+                             QString("%1").arg(n2k_msg.GetPgn(), 5, 16, QLatin1Char('0')).toUpper(),
                              QString("%1").arg(n2k_msg.GetSourceAddr(), 2, 16, QLatin1Char('0')).toUpper(),
                              QString::fromStdString(sig.Name()))
                         .toStdString();

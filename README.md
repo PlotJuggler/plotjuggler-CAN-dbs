@@ -67,6 +67,6 @@ RAW CAN signals are added to the plot in the following format:
 NMEA2k signals are added to the plot in the following formats:
 
 * When the received PGN is PDU Format 1:
-  * `n2k_msg/PDUF1/<MessageName>/<SourceAddr,HexStr>/<DestinationAddr,HexStr>/<SignalName>`
+  * `n2k_msg/PDUF1/<MessageName> (<PGN with destination addr cleared>)/<SourceAddr,HexStr>/<DestinationAddr,HexStr>/<SignalName>`
 * When the received PGN is PDU Format 2 (i.e. broadcast type):
-  * `n2k_msg/PDUF2/<MessageName>/<SourceAddr,HexStr>/<SignalName>`
+  * `n2k_msg/PDUF2/<MessageName> (<PGN>)/<SourceAddr,HexStr>/<SignalName>`
