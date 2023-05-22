@@ -10,6 +10,7 @@
 #include <fstream>
 #include <cstring>
 #include "dataload_can.h"
+#include "select_can_database.h"
 
 // Regular expression for log files created by candump -L
 // Captured groups: time, channel, frame_id, payload
@@ -20,23 +21,20 @@ DataLoadCAN::DataLoadCAN()
   extensions_.push_back("log");
 }
 
-const std::vector<const char *> &DataLoadCAN::compatibleFileExtensions() const
+const std::vector<const char*>& DataLoadCAN::compatibleFileExtensions() const
 {
   return extensions_;
 }
 
-bool DataLoadCAN::loadCANDatabase(PlotDataMapRef &plot_data_map)
+bool DataLoadCAN::loadCANDatabase(PlotDataMapRef& plot_data_map, std::string dbc_file_location,
+                                  CanFrameProcessor::CanProtocol protocol)
 {
-  // Get dbc file and add frames to dataMap()
-  auto dbc_dialog = QFileDialog::getOpenFileUrl(
-    Q_NULLPTR,
-    tr("Select CAN database"),
-    QUrl(),tr("CAN database (*.dbc)")).toLocalFile();
-  std::ifstream dbc_file{dbc_dialog.toStdString()};
-  frame_processor_ = std::make_unique<CanFrameProcessor>(dbc_file, plot_data_map, CanFrameProcessor::RAW);
+  std::ifstream dbc_file{ dbc_file_location };
+  frame_processor_ = std::make_unique<CanFrameProcessor>(dbc_file, plot_data_map, protocol);
+  return true;
 }
 
-QSize DataLoadCAN::inspectFile(QFile *file)
+QSize DataLoadCAN::inspectFile(QFile* file)
 {
   QTextStream inA(file);
   int linecount = 0;
@@ -54,7 +52,7 @@ QSize DataLoadCAN::inspectFile(QFile *file)
   return table_size;
 }
 
-bool DataLoadCAN::readDataFromFile(FileLoadInfo *fileload_info, PlotDataMapRef &plot_data_map)
+bool DataLoadCAN::readDataFromFile(FileLoadInfo* fileload_info, PlotDataMapRef& plot_data_map)
 {
   bool use_provided_configuration = false;
 
@@ -78,7 +76,14 @@ bool DataLoadCAN::readDataFromFile(FileLoadInfo *fileload_info, PlotDataMapRef &
   const int columncount = table_size.width();
   file.close();
 
-  loadCANDatabase(plot_data_map);
+  DialogSelectCanDatabase* dialog = new DialogSelectCanDatabase();
+
+  if (dialog->exec() != static_cast<int>(QDialog::Accepted))
+  {
+    return false;
+  }
+  loadCANDatabase(plot_data_map, dialog->GetDatabaseLocation().toStdString(), dialog->GetCanProtocol());
+
   file.open(QFile::ReadOnly);
   QTextStream inB(&file);
 
@@ -105,7 +110,7 @@ bool DataLoadCAN::readDataFromFile(FileLoadInfo *fileload_info, PlotDataMapRef &
     rxIterator = canlog_rgx.globalMatch(line);
     if (!rxIterator.hasNext())
     {
-      continue; // skip invalid lines
+      continue;  // skip invalid lines
     }
     QRegularExpressionMatch canFrame = rxIterator.next();
     uint64_t frameId = std::stoul(canFrame.captured(3).toStdString(), 0, 16);
@@ -153,10 +158,11 @@ bool DataLoadCAN::readDataFromFile(FileLoadInfo *fileload_info, PlotDataMapRef &
 
   if (monotonic_warning)
   {
-    QString message = "Two consecutive samples had the same X value (i.e. time).\n"
-                      "Since PlotJuggler makes the assumption that timeseries are strictly monotonic, you "
-                      "might experience undefined behaviours.\n\n"
-                      "You have been warned...";
+    QString message =
+        "Two consecutive samples had the same X value (i.e. time).\n"
+        "Since PlotJuggler makes the assumption that timeseries are strictly monotonic, you "
+        "might experience undefined behaviours.\n\n"
+        "You have been warned...";
     QMessageBox::warning(0, tr("Warning"), message);
   }
 
@@ -167,7 +173,7 @@ DataLoadCAN::~DataLoadCAN()
 {
 }
 
-bool DataLoadCAN::xmlSaveState(QDomDocument &doc, QDomElement &parent_element) const
+bool DataLoadCAN::xmlSaveState(QDomDocument& doc, QDomElement& parent_element) const
 {
   QDomElement elem = doc.createElement("default");
   elem.setAttribute("time_axis", default_time_axis_.c_str());
@@ -176,7 +182,7 @@ bool DataLoadCAN::xmlSaveState(QDomDocument &doc, QDomElement &parent_element) c
   return true;
 }
 
-bool DataLoadCAN::xmlLoadState(const QDomElement &parent_element)
+bool DataLoadCAN::xmlLoadState(const QDomElement& parent_element)
 {
   QDomElement elem = parent_element.firstChildElement("default");
   if (!elem.isNull())

@@ -70,7 +70,9 @@ target_link_libraries(CanFrameProcessor
 
 add_library(DataLoadCAN SHARED
     DataLoadCAN/dataload_can.h
-    DataLoadCAN/dataload_can.cpp)
+    DataLoadCAN/dataload_can.cpp
+    DataLoadCAN/select_can_database.h
+    DataLoadCAN/select_can_database.cpp)
 
 target_link_libraries(DataLoadCAN
     ${PJ_LIBRARIES}
