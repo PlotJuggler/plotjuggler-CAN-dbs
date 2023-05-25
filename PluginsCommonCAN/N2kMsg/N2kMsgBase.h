@@ -7,8 +7,6 @@ struct N2kMsgBase : public N2kMsgInterface
 {
   N2kMsgBase(const uint32_t frame_id, const double timestamp_secs)
     : frame_id_{ frame_id }
-    , pgn_{ (frame_id_ & 0x03FFFF00) >> 8 }
-    , source_addr_{ (frame_id_ & 0xFF) }
     , data_len_{ 0 }
     , timestamp_secs_{ timestamp_secs }
   {
@@ -19,7 +17,7 @@ struct N2kMsgBase : public N2kMsgInterface
   }
   uint32_t GetPgn() const override
   {
-    return { (frame_id_ & 0x03FFFF00) >> 8 };
+    return PGN_FROM_FRAME_ID(frame_id_);
   }
   size_t GetDataLen() const override
   {
@@ -27,7 +25,7 @@ struct N2kMsgBase : public N2kMsgInterface
   }
   uint32_t GetSourceAddr() const override
   {
-    return source_addr_;
+    return (frame_id_ & 0xFF);
   }
   uint32_t GetPduFormat() const override
   {
@@ -43,7 +41,7 @@ struct N2kMsgBase : public N2kMsgInterface
   }
 
 protected:
-  uint32_t frame_id_, pgn_, source_addr_;
+  uint32_t frame_id_;
   size_t data_len_;
   double timestamp_secs_;
 };

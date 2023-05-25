@@ -59,7 +59,7 @@ add_definitions(-DQT_PLUGIN)
 
 add_subdirectory(3rdparty/dbcppp)
 
-add_library(CanFrameProcessor STATIC
+add_library(CanFrameProcessor SHARED
     PluginsCommonCAN/CanFrameProcessor.cpp
     PluginsCommonCAN/N2kMsg/GenericFastPacket.c
 )

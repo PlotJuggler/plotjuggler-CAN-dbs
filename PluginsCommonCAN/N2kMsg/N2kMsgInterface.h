@@ -4,7 +4,8 @@
 #include <cstdint>
 #include <stddef.h>
 
-#define PGN_FROM_FRAME_ID(frame_id) (frame_id >> 8) & 0x03FFFF
+// When PDUF1, clear Destination addr
+#define PGN_FROM_FRAME_ID(frame_id) uint32_t( ((frame_id >> 16) & 0xFF) >= 240 ? ((frame_id >> 8) & 0x03FFFF) : ((frame_id >> 8) & 0x03FF00) )
 
 struct N2kMsgInterface
 {

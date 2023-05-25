@@ -9,6 +9,7 @@
 
 #include <fstream>
 #include <cstring>
+#include <clocale>
 #include "dataload_can.h"
 #include "select_can_database.h"
 

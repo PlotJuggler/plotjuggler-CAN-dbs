@@ -27,13 +27,16 @@ bool CanFrameProcessor::ProcessCanFrame(const uint32_t frame_id, const uint8_t* 
   {
     switch (protocol_)
     {
-      case CanProtocol::RAW: {
+      case CanProtocol::RAW:
+      {
         return ProcessCanFrameRaw(frame_id, payload_ptr, data_len, timestamp_secs);
       }
-      case CanProtocol::NMEA2K: {
+      case CanProtocol::NMEA2K:
+      {
         return ProcessCanFrameN2k(frame_id, payload_ptr, data_len, timestamp_secs);
       }
-      case CanProtocol::J1939: {
+      case CanProtocol::J1939:
+      {
         return ProcessCanFrameJ1939(frame_id, payload_ptr, data_len, timestamp_secs);
       }
       default:
@@ -137,12 +140,7 @@ void CanFrameProcessor::ForwardN2kSignalsToPlot(const N2kMsgInterface& n2k_msg)
 {
   // Create frame_id with priority 6 and source address null, since it is the way dbc is defined, is it always?
   uint32_t dbc_id = (n2k_msg.GetPgn() << 8) | 0xFE | (0x06 << 26) | 0x80000000;
-  if (n2k_msg.GetPduFormat() < 240)
-  {
-    // PDU Format 1, PGN contains destination address
-    // clear destination address, since it is the way it defined in the dbc
-    dbc_id &= (~0xFF00u);
-  }
+
   // qCritical() << "frame_id:" << QString::number(dbc_id) << "\tcan_id:" << QString::number(n2k_msg.GetFrameId());
   auto messages_iter = messages_.find(dbc_id);
   if (messages_iter != messages_.end())
@@ -162,7 +160,7 @@ void CanFrameProcessor::ForwardN2kSignalsToPlot(const N2kMsgInterface& n2k_msg)
           auto destination_qstr = QString("%1").arg(n2k_msg.GetPduSpecific(), 2, 16, QLatin1Char('0')).toUpper();
           ts_name = QString("n2k_msg/PDUF1/%1 (0x%2)/0x%3/0x%4/%5")
                         .arg(QString::fromStdString(msg->Name()),
-                             QString("%1").arg(n2k_msg.GetPgn() & (~0xFFu), 4, 16, QLatin1Char('0')).toUpper(),
+                             QString("%1").arg(n2k_msg.GetPgn(), 4, 16, QLatin1Char('0')).toUpper(),
                              QString("%1").arg(n2k_msg.GetSourceAddr(), 2, 16, QLatin1Char('0')).toUpper(),
                              destination_qstr, QString::fromStdString(sig.Name()))
                         .toStdString();
