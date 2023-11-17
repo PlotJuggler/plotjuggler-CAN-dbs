@@ -59,7 +59,7 @@ add_definitions(-DQT_PLUGIN)
 
 add_subdirectory(3rdparty/dbcppp)
 
-add_library(CanFrameProcessor SHARED
+add_library(CanFrameProcessor STATIC
     PluginsCommonCAN/CanFrameProcessor.cpp
     PluginsCommonCAN/N2kMsg/GenericFastPacket.c
 )
@@ -67,6 +67,7 @@ target_link_libraries(CanFrameProcessor
     ${PJ_LIBRARIES}
     libdbcppp
 )
+set_property(TARGET CanFrameProcessor PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 add_library(DataLoadCAN SHARED
     DataLoadCAN/dataload_can.h
