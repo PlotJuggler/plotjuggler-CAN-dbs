@@ -8,13 +8,20 @@ CanFrameProcessor::CanFrameProcessor(std::ifstream& dbc_file, PJ::PlotDataMapRef
   messages_.clear();
   for (const dbcppp::IMessage& msg : can_network_->Messages())
   {
-    messages_.insert(std::make_pair(msg.Id(), &msg));
-    // For N2kMsgFast, MessageSize is certainly larger than 8 bytes
-    if (protocol_ == CanProtocol::NMEA2K)
-    {
-      if (msg.MessageSize() > 8)
+    if (protocol_ == CanProtocol::RAW) {
+      // When protocol is raw, use can_id from the dbc as the key for the messages
+      messages_.insert(std::make_pair(msg.Id(), &msg));
+    }
+    else {
+      // When protocol is not raw, use PGN as the key for the messages_
+      messages_.insert(std::make_pair(PGN_FROM_FRAME_ID(msg.Id()), &msg));
+      // For N2kMsgFast, MessageSize is certainly larger than 8 bytes
+      if (protocol_ == CanProtocol::NMEA2K)
       {
-        fast_packet_pgns_set_.insert(PGN_FROM_FRAME_ID(msg.Id()));
+        if (msg.MessageSize() > 8)
+        {
+          fast_packet_pgns_set_.insert(PGN_FROM_FRAME_ID(msg.Id()));
+        }
       }
     }
   }
@@ -138,12 +145,9 @@ bool CanFrameProcessor::ProcessCanFrameJ1939(const uint32_t frame_id, const uint
 
 void CanFrameProcessor::ForwardN2kSignalsToPlot(const N2kMsgInterface& n2k_msg)
 {
-  // Create frame_id with priority 6 and source address null, since it is the way dbc is defined, is it always?
-  uint32_t dbc_id = (n2k_msg.GetPgn() << 8) | 0xFE | (0x06 << 26) | 0x80000000;
-
   auto protocol_prefix = protocol_ == CanProtocol::NMEA2K ? QString("nmea2k_msg") : QString("j1939_msg");
   // qCritical() << "frame_id:" << QString::number(dbc_id) << "\tcan_id:" << QString::number(n2k_msg.GetFrameId());
-  auto messages_iter = messages_.find(dbc_id);
+  auto messages_iter = messages_.find(n2k_msg.GetPgn());
   if (messages_iter != messages_.end())
   {
     const dbcppp::IMessage* msg = messages_iter->second;
