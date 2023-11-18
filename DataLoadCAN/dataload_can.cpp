@@ -11,7 +11,7 @@
 #include <cstring>
 #include <clocale>
 #include "dataload_can.h"
-#include "select_can_database.h"
+#include "../PluginsCommonCAN/select_can_database.h"
 
 // Regular expression for log files created by candump -L
 // Captured groups: time, channel, frame_id, payload

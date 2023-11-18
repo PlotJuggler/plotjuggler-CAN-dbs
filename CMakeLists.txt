@@ -62,6 +62,8 @@ add_subdirectory(3rdparty/dbcppp)
 add_library(CanFrameProcessor STATIC
     PluginsCommonCAN/CanFrameProcessor.cpp
     PluginsCommonCAN/N2kMsg/GenericFastPacket.c
+    PluginsCommonCAN/select_can_database.h
+    PluginsCommonCAN/select_can_database.cpp
 )
 target_link_libraries(CanFrameProcessor
     ${PJ_LIBRARIES}
@@ -71,9 +73,7 @@ set_property(TARGET CanFrameProcessor PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 add_library(DataLoadCAN SHARED
     DataLoadCAN/dataload_can.h
-    DataLoadCAN/dataload_can.cpp
-    DataLoadCAN/select_can_database.h
-    DataLoadCAN/select_can_database.cpp)
+    DataLoadCAN/dataload_can.cpp)
 
 target_link_libraries(DataLoadCAN
     ${PJ_LIBRARIES}

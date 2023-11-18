@@ -50,6 +50,7 @@
 
 #include "connectdialog.h"
 #include "ui_connectdialog.h"
+#include "../PluginsCommonCAN/select_can_database.h"
 
 #include <QCanBus>
 
@@ -235,10 +236,15 @@ void ConnectDialog::updateSettings()
 
 void ConnectDialog::importDatabaseLocation()
 {
-    m_currentSettings.canDatabaseLocation = QFileDialog::getOpenFileUrl(
-        Q_NULLPTR,
-        tr("Select CAN database"),
-        QUrl(),tr("CAN database (*.dbc)")).toLocalFile();
+    DialogSelectCanDatabase* dialog = new DialogSelectCanDatabase();
+    if (dialog->exec() != static_cast<int>(QDialog::Accepted))
+    {
+        ConnectDialog::cancel();
+        return;
+    }
+
+    m_currentSettings.canDatabaseLocation = dialog->GetDatabaseLocation();
+    m_currentSettings.protocol = dialog->GetCanProtocol();
     // Since file is gotten, enable ok button.
     m_ui->okButton->setEnabled(true);
 }
