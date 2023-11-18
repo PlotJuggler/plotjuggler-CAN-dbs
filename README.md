@@ -17,7 +17,7 @@ To build any plugin, PlotJuggler must be installed in your system.
 
 For instance, in Linux, you should perform a full compilation and installation:
 
-```
+```BASH
 git clone --recurse-submodules https://github.com/facontidavide/PlotJuggler.git
 cd PlotJuggler
 mkdir build; cd build
@@ -26,13 +26,26 @@ make -j
 sudo make install
 ```
 After successfull installation of PlotJuggler, one can build DataLoadCAN and DataStreamCAN plugins as follows.
-```
+```BASH
 git clone --recurse-submodules https://github.com/PlotJuggler/plotjuggler-CAN-dbs.git
 cd plotjuggler-CAN-dbs
 mkdir build; cd build
 cmake ..
 make
 
+```
+
+An alternative approach is including this project in a local copy of PlotJuggler. This approach might be preferable on Windows or AppImage builds
+```BASH
+git clone --recurse-submodules https://github.com/facontidavide/PlotJuggler.git
+cd PlotJuggler/plotjuggler_plugins
+git clone --recurse-submodules https://github.com/PlotJuggler/plotjuggler-CAN-dbs.git
+# Add the following line in the CMakeList.txt of the PlotJuggler, just after other plugin include lines
+# add_subdirectory( plotjuggler_plugins/plotjuggler-CAN-dbs )
+cd ../; mkdir build; cd build # Create a build folder in the root of PlotJuggler
+cmake ..
+make -j
+sudo make install # In this approach, system-wide install is optional, you can diretly use the PJ inside the bin with CAN plugins included
 ```
 
 # Using the plugins

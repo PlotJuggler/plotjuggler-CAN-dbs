@@ -1,11 +1,16 @@
 cmake_minimum_required(VERSION 3.7)
 
-project(plotjuggler_can_plugins)
+if( CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR )
+    # Standalone build, call project and look for PlotJuggler
+    project(plotjuggler_can_plugins)
 
-set(CMAKE_MODULE_PATH
-    ${CMAKE_MODULE_PATH}
-    "${CMAKE_CURRENT_SOURCE_DIR}/cmake"
-)
+    list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+    find_package(PlotJuggler REQUIRED)
+else()
+    # Included from project (assuming from PlotJuggler)
+    # Set PlotJuggler_LIBRARY manually since find_package fails in this configuration.
+    set(PlotJuggler_LIBRARY plotjuggler_base)
+endif()
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 set(CMAKE_AUTOMOC ON)
@@ -33,7 +38,6 @@ find_package(Qt5 REQUIRED COMPONENTS
 find_package(Qt5 OPTIONAL_COMPONENTS
     SerialBus
 )
-find_package(PlotJuggler REQUIRED)
 
 include_directories(
     ${Qt5Core_INCLUDE_DIRS}
@@ -42,7 +46,7 @@ include_directories(
     ${Qt5Xml_INCLUDE_DIRS}
     ${PlotJuggler_INCLUDE_DIRS}
     ${Qt5Svg_INCLUDE_DIRS}
-    ./3rdparty/dbcppp/include
+    3rdparty/dbcppp/include
 )
 
 set(PJ_LIBRARIES
