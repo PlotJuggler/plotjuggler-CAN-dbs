@@ -57,3 +57,18 @@ If you want to use CAN Streamer plugin (and your machine does not have the plugi
 When you start CAN Streamer plugin, a connect dialog will be opened as in the figures below. After choosing the correct backend and interface, one need to load CAN Database (`.dbc` only for now) to be able to start the streamer (OK button is disabled by default, it is enabled only when a database is loaded.).
 
 ![DataStreamCAN](docs/DatabaseLoaded.png "DataStreamCAN connect, database loaded.")
+
+# Details about the plugins
+
+RAW CAN signals are added to the plot in the following format:
+
+`can_frames/<FrameId,DecStr>/<SignalName>`
+
+NMEA2K signals are added to the plot in the following formats:
+
+* When the received PGN is PDU Format 1:
+  * `nmea2k_msg/PDUF1/<MessageName> (<PGN with destination addr cleared>)/<SourceAddr,HexStr>/<DestinationAddr,HexStr>/<SignalName>`
+* When the received PGN is PDU Format 2 (i.e. broadcast type):
+  * `nmea2k_msg/PDUF2/<MessageName> (<PGN>)/<SourceAddr,HexStr>/<SignalName>`
+
+J1939 signals are added to the plot just like the NMEA2K ones, with only difference being the the use of prefix `j1939_msg` instead of `nmea2k_msg`.

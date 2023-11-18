@@ -1,4 +1,3 @@
-#include "dataload_can.h"
 #include <QTextStream>
 #include <QFile>
 #include <QMessageBox>
@@ -10,6 +9,9 @@
 
 #include <fstream>
 #include <cstring>
+#include <clocale>
+#include "dataload_can.h"
+#include "select_can_database.h"
 
 // Regular expression for log files created by candump -L
 // Captured groups: time, channel, frame_id, payload
@@ -20,28 +22,20 @@ DataLoadCAN::DataLoadCAN()
   extensions_.push_back("log");
 }
 
-const std::vector<const char *> &DataLoadCAN::compatibleFileExtensions() const
+const std::vector<const char*>& DataLoadCAN::compatibleFileExtensions() const
 {
   return extensions_;
 }
 
-bool DataLoadCAN::loadCANDatabase(QString dbc_filename)
+bool DataLoadCAN::loadCANDatabase(PlotDataMapRef& plot_data_map, std::string dbc_file_location,
+                                  CanFrameProcessor::CanProtocol protocol)
 {
-  // Get dbc file and add frames to dataMap()
-  auto dbc_dialog = QFileDialog::getOpenFileUrl(
-    Q_NULLPTR,
-    tr("Select CAN database"),
-    QUrl(),tr("CAN database (*.dbc)")).toLocalFile();
-  std::ifstream dbc_file{dbc_dialog.toStdString()};
-  can_network_ = dbcppp::INetwork::LoadDBCFromIs(dbc_file);
-  messages_.clear();
-  for (const dbcppp::IMessage& msg : can_network_->Messages())
-  {
-    messages_.insert(std::make_pair(msg.Id(), &msg));
-  }
+  std::ifstream dbc_file{ dbc_file_location };
+  frame_processor_ = std::make_unique<CanFrameProcessor>(dbc_file, plot_data_map, protocol);
+  return true;
 }
 
-QSize DataLoadCAN::inspectFile(QFile *file)
+QSize DataLoadCAN::inspectFile(QFile* file)
 {
   QTextStream inA(file);
   int linecount = 0;
@@ -59,21 +53,21 @@ QSize DataLoadCAN::inspectFile(QFile *file)
   return table_size;
 }
 
-bool DataLoadCAN::readDataFromFile(FileLoadInfo *info, PlotDataMapRef &plot_data)
+bool DataLoadCAN::readDataFromFile(FileLoadInfo* fileload_info, PlotDataMapRef& plot_data_map)
 {
   bool use_provided_configuration = false;
 
-  if (info->plugin_config.hasChildNodes())
+  if (fileload_info->plugin_config.hasChildNodes())
   {
     use_provided_configuration = true;
-    xmlLoadState(info->plugin_config.firstChildElement());
+    xmlLoadState(fileload_info->plugin_config.firstChildElement());
   }
 
   const int TIME_INDEX_NOT_DEFINED = -2;
 
   int time_index = TIME_INDEX_NOT_DEFINED;
 
-  QFile file(info->filename);
+  QFile file(fileload_info->filename);
   file.open(QFile::ReadOnly);
 
   std::vector<std::string> column_names;
@@ -83,7 +77,14 @@ bool DataLoadCAN::readDataFromFile(FileLoadInfo *info, PlotDataMapRef &plot_data
   const int columncount = table_size.width();
   file.close();
 
-  loadCANDatabase("FilenameNotUsed");
+  DialogSelectCanDatabase* dialog = new DialogSelectCanDatabase();
+
+  if (dialog->exec() != static_cast<int>(QDialog::Accepted))
+  {
+    return false;
+  }
+  loadCANDatabase(plot_data_map, dialog->GetDatabaseLocation().toStdString(), dialog->GetCanProtocol());
+
   file.open(QFile::ReadOnly);
   QTextStream inB(&file);
 
@@ -99,17 +100,6 @@ bool DataLoadCAN::readDataFromFile(FileLoadInfo *info, PlotDataMapRef &plot_data
   progress_dialog.setAutoReset(true);
   progress_dialog.show();
 
-  // Add all signals by name
-  for(auto it = messages_.begin(); it != messages_.end(); it++)
-  {
-    const dbcppp::IMessage* msg = it->second;
-    for (const dbcppp::ISignal& signal : msg->Signals())
-    {
-      auto str = QString("can_frames/%1/").arg(msg->Id()).toStdString() + signal.Name();
-      plot_data.addNumeric(str);
-    }
-  }
-
   bool monotonic_warning = false;
   // To have . as decimal seperator, save current locale and change it.
   const auto oldLocale = std::setlocale(LC_NUMERIC, nullptr);
@@ -121,7 +111,7 @@ bool DataLoadCAN::readDataFromFile(FileLoadInfo *info, PlotDataMapRef &plot_data
     rxIterator = canlog_rgx.globalMatch(line);
     if (!rxIterator.hasNext())
     {
-      continue; // skip invalid lines
+      continue;  // skip invalid lines
     }
     QRegularExpressionMatch canFrame = rxIterator.next();
     uint64_t frameId = std::stoul(canFrame.captured(3).toStdString(), 0, 16);
@@ -144,22 +134,7 @@ bool DataLoadCAN::readDataFromFile(FileLoadInfo *info, PlotDataMapRef &plot_data
     uint8_t frameDataBytes[8];
     std::memcpy(frameDataBytes, &frameData, 8);
     std::reverse(frameDataBytes, frameDataBytes + 8);
-    auto messages_iter = messages_.find(frameId);
-    if (messages_iter != messages_.end())
-    {
-      const dbcppp::IMessage* msg = messages_iter->second;
-      for (const dbcppp::ISignal& signal : msg->Signals())
-      {
-        double decoded_val = signal.RawToPhys(signal.Decode(frameDataBytes));
-        auto str = QString("can_frames/%1/").arg(frameId).toStdString() + signal.Name();
-        auto it = plot_data.numeric.find(str);
-        if (it != plot_data.numeric.end())
-        {
-          auto &plot = it->second;
-          plot.pushBack(PlotData::Point(frameTime, decoded_val));
-        }
-      }
-    }
+    frame_processor_->ProcessCanFrame(frameId, frameDataBytes, 8, frameTime);
     //------ progress dialog --------------
     if (linecount++ % 100 == 0)
     {
@@ -179,15 +154,16 @@ bool DataLoadCAN::readDataFromFile(FileLoadInfo *info, PlotDataMapRef &plot_data
   if (interrupted)
   {
     progress_dialog.cancel();
-    plot_data.numeric.clear();
+    plot_data_map.numeric.clear();
   }
 
   if (monotonic_warning)
   {
-    QString message = "Two consecutive samples had the same X value (i.e. time).\n"
-                      "Since PlotJuggler makes the assumption that timeseries are strictly monotonic, you "
-                      "might experience undefined behaviours.\n\n"
-                      "You have been warned...";
+    QString message =
+        "Two consecutive samples had the same X value (i.e. time).\n"
+        "Since PlotJuggler makes the assumption that timeseries are strictly monotonic, you "
+        "might experience undefined behaviours.\n\n"
+        "You have been warned...";
     QMessageBox::warning(0, tr("Warning"), message);
   }
 
@@ -198,7 +174,7 @@ DataLoadCAN::~DataLoadCAN()
 {
 }
 
-bool DataLoadCAN::xmlSaveState(QDomDocument &doc, QDomElement &parent_element) const
+bool DataLoadCAN::xmlSaveState(QDomDocument& doc, QDomElement& parent_element) const
 {
   QDomElement elem = doc.createElement("default");
   elem.setAttribute("time_axis", default_time_axis_.c_str());
@@ -207,7 +183,7 @@ bool DataLoadCAN::xmlSaveState(QDomDocument &doc, QDomElement &parent_element) c
   return true;
 }
 
-bool DataLoadCAN::xmlLoadState(const QDomElement &parent_element)
+bool DataLoadCAN::xmlLoadState(const QDomElement& parent_element)
 {
   QDomElement elem = parent_element.firstChildElement("default");
   if (!elem.isNull())
