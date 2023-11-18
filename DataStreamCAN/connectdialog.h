@@ -58,6 +58,9 @@
 #include <QFileDialog>
 #include <QDialog>
 
+#include "../PluginsCommonCAN/CanFrameProcessor.h"
+
+
 QT_BEGIN_NAMESPACE
 
 namespace Ui {
@@ -79,6 +82,7 @@ public:
         QString canDatabaseLocation;
         QList<ConfigurationItem> configurations;
         bool useConfigurationEnabled = false;
+        CanFrameProcessor::CanProtocol protocol;
     };
 
     explicit ConnectDialog(QWidget *parent = nullptr);
