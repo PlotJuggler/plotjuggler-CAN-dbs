@@ -64,9 +64,11 @@ RAW CAN signals are added to the plot in the following format:
 
 `can_frames/<FrameId,DecStr>/<SignalName>`
 
-NMEA2k signals are added to the plot in the following formats:
+NMEA2K signals are added to the plot in the following formats:
 
 * When the received PGN is PDU Format 1:
-  * `n2k_msg/PDUF1/<MessageName> (<PGN with destination addr cleared>)/<SourceAddr,HexStr>/<DestinationAddr,HexStr>/<SignalName>`
+  * `nmea2k_msg/PDUF1/<MessageName> (<PGN with destination addr cleared>)/<SourceAddr,HexStr>/<DestinationAddr,HexStr>/<SignalName>`
 * When the received PGN is PDU Format 2 (i.e. broadcast type):
-  * `n2k_msg/PDUF2/<MessageName> (<PGN>)/<SourceAddr,HexStr>/<SignalName>`
+  * `nmea2k_msg/PDUF2/<MessageName> (<PGN>)/<SourceAddr,HexStr>/<SignalName>`
+
+J1939 signals are added to the plot just like the NMEA2K ones, with only difference being the the use of prefix `j1939_msg` instead of `nmea2k_msg`.

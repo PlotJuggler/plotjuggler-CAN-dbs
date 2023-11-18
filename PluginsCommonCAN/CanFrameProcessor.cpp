@@ -141,6 +141,7 @@ void CanFrameProcessor::ForwardN2kSignalsToPlot(const N2kMsgInterface& n2k_msg)
   // Create frame_id with priority 6 and source address null, since it is the way dbc is defined, is it always?
   uint32_t dbc_id = (n2k_msg.GetPgn() << 8) | 0xFE | (0x06 << 26) | 0x80000000;
 
+  auto protocol_prefix = protocol_ == CanProtocol::NMEA2K ? QString("nmea2k_msg") : QString("j1939_msg");
   // qCritical() << "frame_id:" << QString::number(dbc_id) << "\tcan_id:" << QString::number(n2k_msg.GetFrameId());
   auto messages_iter = messages_.find(dbc_id);
   if (messages_iter != messages_.end())
@@ -158,8 +159,9 @@ void CanFrameProcessor::ForwardN2kSignalsToPlot(const N2kMsgInterface& n2k_msg)
         if (n2k_msg.GetPduFormat() < 240)
         {
           auto destination_qstr = QString("%1").arg(n2k_msg.GetPduSpecific(), 2, 16, QLatin1Char('0')).toUpper();
-          ts_name = QString("n2k_msg/PDUF1/%1 (0x%2)/0x%3/0x%4/%5")
-                        .arg(QString::fromStdString(msg->Name()),
+          ts_name = QString("%1/PDUF1/%2 (0x%3)/0x%4/0x%5/%6")
+                        .arg(protocol_prefix,
+                             QString::fromStdString(msg->Name()),
                              QString("%1").arg(n2k_msg.GetPgn(), 4, 16, QLatin1Char('0')).toUpper(),
                              QString("%1").arg(n2k_msg.GetSourceAddr(), 2, 16, QLatin1Char('0')).toUpper(),
                              destination_qstr, QString::fromStdString(sig.Name()))
@@ -167,8 +169,9 @@ void CanFrameProcessor::ForwardN2kSignalsToPlot(const N2kMsgInterface& n2k_msg)
         }
         else
         {
-          ts_name = QString("n2k_msg/PDUF2/%1 (0x%2)/0x%3/%4")
-                        .arg(QString::fromStdString(msg->Name()),
+          ts_name = QString("%1/PDUF2/%2 (0x%3)/0x%4/%5")
+                        .arg(protocol_prefix,
+                             QString::fromStdString(msg->Name()),
                              QString("%1").arg(n2k_msg.GetPgn(), 5, 16, QLatin1Char('0')).toUpper(),
                              QString("%1").arg(n2k_msg.GetSourceAddr(), 2, 16, QLatin1Char('0')).toUpper(),
                              QString::fromStdString(sig.Name()))
