@@ -68,7 +68,15 @@ void DataStreamCAN::connectCanInterface()
 
 bool DataStreamCAN::start(QStringList*)
 {
+  if (running_) {
+    return running_;
+  }
   connect_dialog_->show();
+  int res = connect_dialog_->exec();
+  if (res != QDialog::Accepted)
+  {
+    return false;
+  }
   thread_ = std::thread([this]() { this->loop(); });
   return true;
 }
