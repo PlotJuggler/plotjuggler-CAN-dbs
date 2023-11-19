@@ -6,8 +6,6 @@ Using the plugins, One can;
   * Visualize CAN streams
 
 # Prerequisites
-  * Boost (1.72 or later)
-  * libxml2
   * PlotJuggler (3.2 or later)
   * Qt5 SerialBus (Optional, required for DataStreamCAN)
 
