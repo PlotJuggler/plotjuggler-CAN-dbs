@@ -35,7 +35,7 @@ find_package(Qt5 REQUIRED COMPONENTS
     Xml
     Svg
 )
-find_package(Qt5 OPTIONAL_COMPONENTS
+find_package(Qt5SerialBus OPTIONAL_COMPONENTS
     SerialBus
 )
 
