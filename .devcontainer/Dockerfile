@@ -11,7 +11,6 @@ WORKDIR $HOME
 
 ######### Customize Container Here ###########
 
-# I
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
     build-essential \
     can-utils \
@@ -32,6 +31,8 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
     libzmq3-dev \
     libzstd-dev \
     qtbase5-dev \
+    qttools5-dev-tools \
+    qttools5-dev \
     wget \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
@@ -49,6 +50,15 @@ RUN git clone --depth 1 --recurse-submodules https://github.com/miltkall/PlotJug
     cmake .. &&\
     make -j &&\
     make install
+
+# zsh in container
+RUN sh -c "$(wget -O- https://github.com/deluan/zsh-in-docker/releases/download/v1.2.1/zsh-in-docker.sh)" -- \
+    -p git \
+    -p https://github.com/zsh-users/zsh-autosuggestions \
+    -p https://github.com/zsh-users/zsh-completions
+
+
+RUN apt-get install  -y
 
 WORKDIR $HOME
 
