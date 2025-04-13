@@ -29,7 +29,8 @@
     },
     "mounts": [
         "source=/lib/modules,target=/lib/modules,type=bind",
-        "source=${localEnv:HOME}/.netrc,target=/home/kasm-user/.netrc,type=bind"
+        "source=${localEnv:HOME}/.netrc,target=/home/kasm-user/.netrc,type=bind",
+        "source=${localEnv:HOME}/_developer,target=/home/kasm-user/_developer,type=bind"
     ],
     "overrideCommand": false,
     "remoteUser": "kasm-user",
