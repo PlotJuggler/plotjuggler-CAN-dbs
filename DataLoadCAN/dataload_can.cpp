@@ -27,11 +27,19 @@ const std::vector<const char*>& DataLoadCAN::compatibleFileExtensions() const
   return extensions_;
 }
 
-bool DataLoadCAN::loadCANDatabase(PlotDataMapRef& plot_data_map, std::string dbc_file_location,
+bool DataLoadCAN::loadCANDatabase(PlotDataMapRef& plot_data_map, const QStringList& dbc_file_locations,
                                   CanFrameProcessor::CanProtocol protocol)
 {
-  std::ifstream dbc_file{ dbc_file_location };
-  frame_processor_ = std::make_unique<CanFrameProcessor>(dbc_file, plot_data_map, protocol);
+  if (dbc_file_locations.isEmpty()) {
+    return false;
+  }
+  
+  std::vector<std::ifstream> dbc_files;
+  for (const QString& location : dbc_file_locations) {
+    dbc_files.emplace_back(location.toStdString());
+  }
+  
+  frame_processor_ = std::make_unique<CanFrameProcessor>(dbc_files, plot_data_map, protocol);
   return true;
 }
 
@@ -83,7 +91,8 @@ bool DataLoadCAN::readDataFromFile(FileLoadInfo* fileload_info, PlotDataMapRef& 
   {
     return false;
   }
-  loadCANDatabase(plot_data_map, dialog->GetDatabaseLocation().toStdString(), dialog->GetCanProtocol());
+  
+  loadCANDatabase(plot_data_map, dialog->GetDatabaseLocations(), dialog->GetCanProtocol());
 
   file.open(QFile::ReadOnly);
   QTextStream inB(&file);

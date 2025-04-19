@@ -79,7 +79,7 @@ public:
     struct Settings {
         QString backendName;
         QString deviceInterfaceName;
-        QString canDatabaseLocation;
+        QStringList canDatabaseLocations;
         QList<ConfigurationItem> configurations;
         bool useConfigurationEnabled = false;
         CanFrameProcessor::CanProtocol protocol;

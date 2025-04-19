@@ -2,6 +2,7 @@
 #define CAN_FRAME_PROCESSOR_H_
 
 #include <fstream>
+#include <vector>
 
 #include <dbcppp/Network.h>
 #include <PlotJuggler/plotdata.h>
@@ -18,12 +19,20 @@ public:
     NMEA2K,
     J1939
   };
+  
+  // Constructor for loading a single DBC file (for backwards compatibility)
   CanFrameProcessor(std::ifstream& dbc_file, PJ::PlotDataMapRef& data_map, CanProtocol protocol);
+  
+  // Constructor for loading multiple DBC files
+  CanFrameProcessor(const std::vector<std::ifstream>& dbc_files, PJ::PlotDataMapRef& data_map, CanProtocol protocol);
 
   bool ProcessCanFrame(const uint32_t frame_id, const uint8_t* data_ptr, const size_t data_len,
                        const double timestamp_secs);
 
 private:
+  void LoadAndMergeNetworks(const std::vector<std::ifstream>& dbc_files);
+  void InitializeMessagesMap();
+  
   bool ProcessCanFrameRaw(const uint32_t frame_id, const uint8_t* data_ptr, const size_t data_len,
                           const double timestamp_secs);
   bool ProcessCanFrameN2k(const uint32_t frame_id, const uint8_t* data_ptr, const size_t data_len,

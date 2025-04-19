@@ -11,6 +11,7 @@
 #include <chrono>
 #include <thread>
 #include <fstream>
+#include <vector>
 
 #include "datastream_can.h"
 
@@ -48,8 +49,13 @@ void DataStreamCAN::connectCanInterface()
   }
   else
   {
-    std::ifstream dbc_file{ p.canDatabaseLocation.toStdString() };
-    frame_processor_ = std::make_unique<CanFrameProcessor>(dbc_file, dataMap(), p.protocol);
+    // Load multiple DBC files
+    std::vector<std::ifstream> dbc_files;
+    for (const QString& location : p.canDatabaseLocations) {
+      dbc_files.emplace_back(location.toStdString());
+    }
+    
+    frame_processor_ = std::make_unique<CanFrameProcessor>(dbc_files, dataMap(), p.protocol);
 
     QVariant bitRate = can_interface_->configurationParameter(QCanBusDevice::BitRateKey);
     if (bitRate.isValid())

@@ -239,12 +239,11 @@ void ConnectDialog::importDatabaseLocation()
     DialogSelectCanDatabase* dialog = new DialogSelectCanDatabase();
     if (dialog->exec() != static_cast<int>(QDialog::Accepted))
     {
-        ConnectDialog::cancel();
         return;
     }
 
-    m_currentSettings.canDatabaseLocation = dialog->GetDatabaseLocation();
+    m_currentSettings.canDatabaseLocations = dialog->GetDatabaseLocations();
     m_currentSettings.protocol = dialog->GetCanProtocol();
-    // Since file is gotten, enable ok button.
-    m_ui->okButton->setEnabled(true);
+    // Since files are gotten, enable ok button.
+    m_ui->okButton->setEnabled(!m_currentSettings.canDatabaseLocations.isEmpty());
 }

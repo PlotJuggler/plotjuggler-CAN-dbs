@@ -4,8 +4,46 @@
 CanFrameProcessor::CanFrameProcessor(std::ifstream& dbc_file, PJ::PlotDataMapRef& data_map, CanProtocol protocol)
   : protocol_{ protocol }, data_map_{ data_map }
 {
-  can_network_ = dbcppp::INetwork::LoadDBCFromIs(dbc_file);
+  std::vector<std::ifstream> files;
+  files.push_back(std::move(dbc_file));
+  LoadAndMergeNetworks(files);
+  InitializeMessagesMap();
+}
+
+CanFrameProcessor::CanFrameProcessor(const std::vector<std::ifstream>& dbc_files, PJ::PlotDataMapRef& data_map, CanProtocol protocol)
+  : protocol_{ protocol }, data_map_{ data_map }
+{
+  LoadAndMergeNetworks(dbc_files);
+  InitializeMessagesMap();
+}
+
+void CanFrameProcessor::LoadAndMergeNetworks(const std::vector<std::ifstream>& dbc_files)
+{
+  if (dbc_files.empty()) {
+    return;
+  }
+  
+  // Load the first file as the base network
+  can_network_ = dbcppp::INetwork::LoadDBCFromIs(const_cast<std::ifstream&>(dbc_files[0]));
+  
+  // Merge additional files if they exist
+  for (size_t i = 1; i < dbc_files.size(); i++) {
+    auto additional_network = dbcppp::INetwork::LoadDBCFromIs(const_cast<std::ifstream&>(dbc_files[i]));
+    if (additional_network) {
+      can_network_->Merge(std::move(additional_network));
+    }
+  }
+}
+
+void CanFrameProcessor::InitializeMessagesMap()
+{
+  if (!can_network_) {
+    return;
+  }
+  
   messages_.clear();
+  fast_packet_pgns_set_.clear();
+  
   for (const dbcppp::IMessage& msg : can_network_->Messages())
   {
     if (protocol_ == CanProtocol::RAW) {
@@ -94,6 +132,7 @@ bool CanFrameProcessor::ProcessCanFrameRaw(const uint32_t frame_id, const uint8_
     return false;
   }
 }
+
 bool CanFrameProcessor::ProcessCanFrameN2k(const uint32_t frame_id, const uint8_t* data_ptr, const size_t data_len,
                                            const double timestamp_secs)
 {
@@ -135,6 +174,7 @@ bool CanFrameProcessor::ProcessCanFrameN2k(const uint32_t frame_id, const uint8_
   }
   return false;
 }
+
 bool CanFrameProcessor::ProcessCanFrameJ1939(const uint32_t frame_id, const uint8_t* data_ptr, const size_t data_len,
                                              const double timestamp_secs)
 {

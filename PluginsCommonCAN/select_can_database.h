@@ -24,7 +24,7 @@ class DialogSelectCanDatabase : public QDialog
 
 public:
   explicit DialogSelectCanDatabase(QWidget* parent = nullptr);
-  QString GetDatabaseLocation() const;
+  QStringList GetDatabaseLocations() const;
   CanFrameProcessor::CanProtocol GetCanProtocol() const;
 
   ~DialogSelectCanDatabase() override;
@@ -32,13 +32,14 @@ public:
 private slots:
   void Ok();
   void Cancel();
+  void AddDatabaseFile();
+  void RemoveSelectedDatabaseFile();
+  void UpdateButtonStates();
 
 private:
   Ui::DialogSelectCanDatabase* ui_;
-  QString database_location_;
+  QStringList database_locations_;
   CanFrameProcessor::CanProtocol protocol_;
-
-  void ImportDatabaseLocation();
 };
 
 #endif  // DIALOG_SELECT_CAN_DATABASE_H
