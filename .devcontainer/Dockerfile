@@ -1,7 +1,7 @@
 #
 # KASM
 #
-FROM kasmweb/core-ubuntu-noble:1.16.1
+FROM kasmweb/core-ubuntu-noble:1.17.0
 USER root
 
 ENV HOME=/home/kasm-default-profile
@@ -45,9 +45,9 @@ WORKDIR /opt/plotjuggler
 # Install plotJuggler
 # 3a2e901 PlotJuggler
 # 8f8d62f plotjuggler-CAN-dbs
-RUN git clone --depth 1 --recurse-submodules https://github.com/miltkall/PlotJuggler.git . &&\
+RUN git clone --depth 1 --recurse-submodules https://github.com/facontidavide/PlotJuggler.git . &&\
     cd plotjuggler_plugins &&\
-    git clone --depth 1 --recurse-submodules https://github.com/miltkall/plotjuggler-CAN-dbs.git &&\
+    git clone --depth 1 --recurse-submodules https://github.com/PlotJuggler/plotjuggler-CAN-dbs.git &&\
     echo "add_subdirectory( plotjuggler-CAN-dbs )" >> CMakeLists.txt &&\
     cd ../ &&\
     mkdir build &&\
@@ -83,8 +83,8 @@ RUN echo "kasm-user ALL=(ALL) NOPASSWD: /sbin/modprobe vcan, /usr/sbin/modprobe 
     /sbin/ip link set vcan0 type can bitrate 500000 restart-ms 100, /usr/sbin/ip link set vcan0 type can bitrate 500000 restart-ms 100, \
     /sbin/ip link set vcan0 up, /usr/sbin/ip link set vcan0 up" > /etc/sudoers.d/kasm-vcan && \
     chmod 0440 /etc/sudoers.d/kasm-vcan
-
 COPY scripts/can_dbc_simulator.py /usr/local/bin/can_dbc_simulator
+
 RUN chmod +x /usr/local/bin/can_dbc_simulator $STARTUPDIR/custom_startup.sh 
 
 WORKDIR $HOME
