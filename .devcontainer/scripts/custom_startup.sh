@@ -14,3 +14,6 @@ sudo ip link set vcan0 up
 
 # Start can_dbc_simulator
 /usr/local/bin/can_dbc_simulator /home/kasm-user/plotjuggler-can-dbs/datasamples/test_rav4h.dbc &
+/usr/local/bin/can_dbc_simulator /home/kasm-user/_developer/selv-component-observability/docker/client/data/dbc_files/HMI_CAN.dbc &
+/usr/local/bin/can_dbc_simulator /home/kasm-user/_developer/selv-component-observability/docker/client/data/dbc_files/HMI_CAN_PEM_071024.dbc &
+
