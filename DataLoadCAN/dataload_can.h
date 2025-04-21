@@ -33,4 +33,5 @@ private:
   std::vector<const char *> extensions_;
   std::string default_time_axis_;
   std::unique_ptr<CanFrameProcessor> frame_processor_;
+  QStringList last_used_database_locations_;
 };
