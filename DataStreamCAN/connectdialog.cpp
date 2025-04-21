@@ -236,7 +236,7 @@ void ConnectDialog::updateSettings()
 
 void ConnectDialog::importDatabaseLocation()
 {
-    DialogSelectCanDatabase* dialog = new DialogSelectCanDatabase();
+    DialogSelectCanDatabase* dialog = new DialogSelectCanDatabase(m_currentSettings.canDatabaseLocations);
     if (dialog->exec() != static_cast<int>(QDialog::Accepted))
     {
         return;

@@ -3,14 +3,22 @@
 #include "select_can_database.h"
 #include "ui_select_can_database.h"
 
-DialogSelectCanDatabase::DialogSelectCanDatabase(QWidget* parent)
-  : QDialog(parent), ui_(new Ui::DialogSelectCanDatabase), protocol_{}
+DialogSelectCanDatabase::DialogSelectCanDatabase(const QStringList& existing_files, QWidget* parent)
+  : QDialog(parent), ui_(new Ui::DialogSelectCanDatabase), database_locations_(existing_files), protocol_{}
 {
   ui_->setupUi(this);
   ui_->protocolListBox->addItem(tr("RAW"), QVariant(true));
   ui_->protocolListBox->addItem(tr("NMEA2K"), QVariant(true));
   ui_->protocolListBox->addItem(tr("J1939"), QVariant(true));
   ui_->protocolListBox->setCurrentIndex(0);
+  
+  // Populate list with existing files
+  for (const QString& file : existing_files) {
+    ui_->dbcFilesList->addItem(file);
+  }
+  
+  // Enable OK button if we have files
+  ui_->okButton->setEnabled(!existing_files.isEmpty());
   
   connect(ui_->okButton, &QPushButton::clicked, this, &DialogSelectCanDatabase::Ok);
   connect(ui_->cancelButton, &QPushButton::clicked, this, &DialogSelectCanDatabase::Cancel);
