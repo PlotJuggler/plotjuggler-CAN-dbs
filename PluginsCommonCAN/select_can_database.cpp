@@ -3,6 +3,7 @@
 #include "select_can_database.h"
 #include "ui_select_can_database.h"
 
+// Public
 DialogSelectCanDatabase::DialogSelectCanDatabase(const QStringList& existing_files, QWidget* parent)
   : QDialog(parent), ui_(new Ui::DialogSelectCanDatabase), database_locations_(existing_files), protocol_{}
 {
@@ -42,6 +43,37 @@ DialogSelectCanDatabase::~DialogSelectCanDatabase()
   delete ui_;
 }
 
+void DialogSelectCanDatabase::setCurrentSettings(const QStringList& locations, CanFrameProcessor::CanProtocol protocol)
+{
+  // Set database locations
+  database_locations_ = locations;
+  
+  // Update list widget
+  ui_->dbcFilesList->clear();
+  for (const QString& location : locations) {
+    ui_->dbcFilesList->addItem(location);
+  }
+  
+  // Set protocol
+  int protocol_index = 0; // Default to RAW
+  switch (protocol) {
+    case CanFrameProcessor::CanProtocol::RAW:
+      protocol_index = 0;
+      break;
+    case CanFrameProcessor::CanProtocol::NMEA2K:
+      protocol_index = 1;
+      break;
+    case CanFrameProcessor::CanProtocol::J1939:
+      protocol_index = 2;
+      break;
+  }
+  ui_->protocolListBox->setCurrentIndex(protocol_index);
+  
+  // Enable OK button if we have at least one DBC file
+  ui_->okButton->setEnabled(!locations.isEmpty());
+}
+
+// Private slots
 void DialogSelectCanDatabase::Ok()
 {
   auto protocol_text = ui_->protocolListBox->currentText().toStdString();

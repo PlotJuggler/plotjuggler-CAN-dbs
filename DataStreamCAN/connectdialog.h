@@ -89,6 +89,7 @@ public:
     ~ConnectDialog();
 
     Settings settings() const;
+    void setSettings(const Settings& settings);
 
 private slots:
     void backendChanged(const QString &backend);

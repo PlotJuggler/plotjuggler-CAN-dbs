@@ -106,12 +106,56 @@ DataStreamCAN::~DataStreamCAN()
 
 bool DataStreamCAN::xmlSaveState(QDomDocument& doc, QDomElement& parent_element) const
 {
+  QDomElement elem = doc.createElement("can_stream");
+  
+  // Save dialog settings if available
+  if (connect_dialog_) {
+    ConnectDialog::Settings settings = connect_dialog_->settings();
+    
+    // Save protocol
+    elem.setAttribute("protocol", static_cast<int>(settings.protocol));
+    
+    // Save CAN database locations
+    for (const QString& location : settings.canDatabaseLocations) {
+      QDomElement dbc_elem = doc.createElement("dbc_file");
+      dbc_elem.setAttribute("path", location);
+      elem.appendChild(dbc_elem);
+    }
+  }
+  
+  parent_element.appendChild(elem);
   return true;
 }
 
 bool DataStreamCAN::xmlLoadState(const QDomElement& parent_element)
 {
-  return true;
+  QDomElement elem = parent_element.firstChildElement("can_stream");
+  if (!elem.isNull()) {
+    // Create settings object
+    ConnectDialog::Settings settings;
+    
+    // Load protocol
+    if (elem.hasAttribute("protocol")) {
+      settings.protocol = static_cast<CanFrameProcessor::CanProtocol>(elem.attribute("protocol").toInt());
+    }
+    
+    // Load database locations
+    QDomElement dbc_elem = elem.firstChildElement("dbc_file");
+    while (!dbc_elem.isNull()) {
+      if (dbc_elem.hasAttribute("path")) {
+        settings.canDatabaseLocations.append(dbc_elem.attribute("path"));
+      }
+      dbc_elem = dbc_elem.nextSiblingElement("dbc_file");
+    }
+    
+    // Apply settings to connect dialog
+    if (connect_dialog_) {
+      connect_dialog_->setSettings(settings);
+    }
+    
+    return true;
+  }
+  return false;
 }
 
 void DataStreamCAN::pushSingleCycle()

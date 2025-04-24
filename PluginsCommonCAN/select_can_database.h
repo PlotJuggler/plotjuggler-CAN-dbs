@@ -26,6 +26,7 @@ public:
   explicit DialogSelectCanDatabase(const QStringList& existing_files = QStringList(), QWidget* parent = nullptr);
   QStringList GetDatabaseLocations() const;
   CanFrameProcessor::CanProtocol GetCanProtocol() const;
+  void setCurrentSettings(const QStringList& locations, CanFrameProcessor::CanProtocol protocol);
 
   ~DialogSelectCanDatabase() override;
 

@@ -54,6 +54,7 @@
 
 #include <QCanBus>
 
+// Public
 ConnectDialog::ConnectDialog(QWidget *parent) : QDialog(parent),
                                                 m_ui(new Ui::ConnectDialog)
 {
@@ -105,6 +106,16 @@ ConnectDialog::Settings ConnectDialog::settings() const
     return m_currentSettings;
 }
 
+void ConnectDialog::setSettings(const Settings &settings)
+{
+    m_currentSettings = settings;
+
+    // Update UI with loaded settings if needed
+    // The database locations and protocol will be set when the dialog is opened
+    m_ui->okButton->setEnabled(!settings.canDatabaseLocations.isEmpty());
+}
+
+// Private Slots
 void ConnectDialog::backendChanged(const QString &backend)
 {
     m_ui->interfaceListBox->clear();
@@ -137,6 +148,7 @@ void ConnectDialog::cancel()
     reject();
 }
 
+// Private
 QString ConnectDialog::configurationValue(QCanBusDevice::ConfigurationKey key)
 {
     QVariant result;
@@ -221,7 +233,7 @@ void ConnectDialog::updateSettings()
         // process raw filter list
         if (!m_ui->rawFilterEdit->text().isEmpty())
         {
-            //TODO current ui not sfficient to reflect this param
+            // TODO current ui not sfficient to reflect this param
         }
 
         // process bitrate
@@ -236,7 +248,11 @@ void ConnectDialog::updateSettings()
 
 void ConnectDialog::importDatabaseLocation()
 {
-    DialogSelectCanDatabase* dialog = new DialogSelectCanDatabase(m_currentSettings.canDatabaseLocations);
+    DialogSelectCanDatabase *dialog = new DialogSelectCanDatabase(m_currentSettings.canDatabaseLocations);
+
+    // Initialize with current settings
+    dialog->setCurrentSettings(m_currentSettings.canDatabaseLocations, m_currentSettings.protocol);
+
     if (dialog->exec() != static_cast<int>(QDialog::Accepted))
     {
         return;
@@ -244,6 +260,5 @@ void ConnectDialog::importDatabaseLocation()
 
     m_currentSettings.canDatabaseLocations = dialog->GetDatabaseLocations();
     m_currentSettings.protocol = dialog->GetCanProtocol();
-    // Since files are gotten, enable ok button.
     m_ui->okButton->setEnabled(!m_currentSettings.canDatabaseLocations.isEmpty());
 }
