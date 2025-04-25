@@ -15,6 +15,7 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
     can-utils \
     cmake \
     file \
+    fd-find \
     git \
     iproute2 \
     kmod \
@@ -36,6 +37,8 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
     python3-pip \
     wget \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+ENV PATH="${PATH}:/usr/lib/cargo/bin"
 
 # Dirty, but it is only for dev
 RUN  pip3 install --break-system-packages cantools
