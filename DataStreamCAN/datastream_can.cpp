@@ -1,15 +1,7 @@
-#include <QTextStream>
-#include <QFile>
-#include <QFileDialog>
-#include <QMessageBox>
 #include <QDebug>
 #include <QCanBus>
 #include <QCanBusFrame>
-
-#include <thread>
-#include <mutex>
-#include <chrono>
-#include <thread>
+#include <QDomDocument>
 #include <fstream>
 #include <vector>
 
@@ -17,86 +9,11 @@
 
 using namespace PJ;
 
-DataStreamCAN::DataStreamCAN() : connect_dialog_{ new ConnectDialog() }
+DataStreamCAN::DataStreamCAN()
+    : connect_dialog_(std::make_unique<ConnectDialog>()),
+      running_(false)
 {
-  connect(connect_dialog_, &QDialog::accepted, this, &DataStreamCAN::connectCanInterface);
-}
-
-void DataStreamCAN::connectCanInterface()
-{
-  const ConnectDialog::Settings p = connect_dialog_->settings();
-
-  QString errorString;
-  can_interface_ = QCanBus::instance()->createDevice(p.backendName, p.deviceInterfaceName, &errorString);
-  if (!can_interface_)
-  {
-    qDebug() << tr("Error creating device '%1', reason: '%2'").arg(p.backendName).arg(errorString);
-    return;
-  }
-
-  if (p.useConfigurationEnabled)
-  {
-    for (const ConnectDialog::ConfigurationItem& item : p.configurations)
-      can_interface_->setConfigurationParameter(item.first, item.second);
-  }
-
-  if (!can_interface_->connectDevice())
-  {
-    qDebug() << tr("Connection error: %1").arg(can_interface_->errorString());
-
-    delete can_interface_;
-    can_interface_ = nullptr;
-  }
-  else
-  {
-    // Load multiple DBC files
-    std::vector<std::ifstream> dbc_files;
-    for (const QString& location : p.canDatabaseLocations) {
-      dbc_files.emplace_back(location.toStdString());
-    }
-    
-    frame_processor_ = std::make_unique<CanFrameProcessor>(dbc_files, dataMap(), p.protocol);
-
-    QVariant bitRate = can_interface_->configurationParameter(QCanBusDevice::BitRateKey);
-    if (bitRate.isValid())
-    {
-      qDebug() << tr("Backend: %1, connected to %2 at %3 kBit/s")
-                      .arg(p.backendName)
-                      .arg(p.deviceInterfaceName)
-                      .arg(bitRate.toInt() / 1000);
-    }
-    else
-    {
-      qDebug() << tr("Backend: %1, connected to %2").arg(p.backendName).arg(p.deviceInterfaceName);
-    }
-  }
-}
-
-bool DataStreamCAN::start(QStringList*)
-{
-  if (running_) {
-    return running_;
-  }
-  connect_dialog_->show();
-  int res = connect_dialog_->exec();
-  if (res != QDialog::Accepted)
-  {
-    return false;
-  }
-  thread_ = std::thread([this]() { this->loop(); });
-  return true;
-}
-
-void DataStreamCAN::shutdown()
-{
-  running_ = false;
-  if (thread_.joinable())
-    thread_.join();
-}
-
-bool DataStreamCAN::isRunning() const
-{
-  return running_;
+  connect(connect_dialog_.get(), &QDialog::accepted, this, &DataStreamCAN::connectCanInterface);
 }
 
 DataStreamCAN::~DataStreamCAN()
@@ -104,87 +21,205 @@ DataStreamCAN::~DataStreamCAN()
   shutdown();
 }
 
-bool DataStreamCAN::xmlSaveState(QDomDocument& doc, QDomElement& parent_element) const
+void DataStreamCAN::connectCanInterface()
 {
-  QDomElement elem = doc.createElement("can_stream");
-  
-  // Save dialog settings if available
-  if (connect_dialog_) {
-    ConnectDialog::Settings settings = connect_dialog_->settings();
-    
-    // Save protocol
-    elem.setAttribute("protocol", static_cast<int>(settings.protocol));
-    
-    // Save CAN database locations
-    for (const QString& location : settings.canDatabaseLocations) {
-      QDomElement dbc_elem = doc.createElement("dbc_file");
-      dbc_elem.setAttribute("path", location);
-      elem.appendChild(dbc_elem);
-    }
+  const ConnectDialog::Settings p = connect_dialog_->settings();
+
+  QString errorString;
+  can_interface_.reset(QCanBus::instance()->createDevice(p.backendName, p.deviceInterfaceName, &errorString));
+
+  if (!can_interface_)
+  {
+    qWarning() << tr("Error creating device '%1', reason: '%2'")
+                      .arg(p.backendName)
+                      .arg(errorString);
+    return;
   }
-  
-  parent_element.appendChild(elem);
+
+  if (p.useConfigurationEnabled)
+  {
+    for (const ConnectDialog::ConfigurationItem &item : p.configurations)
+      can_interface_->setConfigurationParameter(item.first, item.second);
+  }
+
+  // Connect signals before connecting the device
+  connect(can_interface_.get(), &QCanBusDevice::framesReceived,
+          this, &DataStreamCAN::processReceivedFrames);
+  connect(can_interface_.get(), &QCanBusDevice::errorOccurred,
+          this, &DataStreamCAN::handleCanError);
+
+  if (!can_interface_->connectDevice())
+  {
+    qWarning() << tr("Connection error: %1").arg(can_interface_->errorString());
+    can_interface_.reset();
+    return;
+  }
+
+  // Load multiple DBC files
+  std::vector<std::ifstream> dbc_files;
+  for (const QString &location : p.canDatabaseLocations)
+  {
+    dbc_files.emplace_back(location.toStdString());
+  }
+
+  frame_processor_ = std::make_unique<CanFrameProcessor>(dbc_files, dataMap(), p.protocol);
+
+  QVariant bitRate = can_interface_->configurationParameter(QCanBusDevice::BitRateKey);
+  if (bitRate.isValid())
+  {
+    qInfo() << tr("Backend: %1, connected to %2 at %3 kBit/s")
+                   .arg(p.backendName)
+                   .arg(p.deviceInterfaceName)
+                   .arg(bitRate.toInt() / 1000);
+  }
+  else
+  {
+    qInfo() << tr("Backend: %1, connected to %2")
+                   .arg(p.backendName)
+                   .arg(p.deviceInterfaceName);
+  }
+}
+
+bool DataStreamCAN::start(QStringList *pre_selected_sources)
+{
+  if (running_)
+  {
+    return true;
+  }
+
+  if (!connect_dialog_->exec() || connect_dialog_->result() != QDialog::Accepted)
+  {
+    return false;
+  }
+
+  // Check interface and frame processor were properly initialized
+  if (!can_interface_ || !frame_processor_)
+  {
+    qWarning() << "Failed to initialize CAN interface or frame processor";
+    return false;
+  }
+
+  running_ = true;
   return true;
 }
 
-bool DataStreamCAN::xmlLoadState(const QDomElement& parent_element)
+void DataStreamCAN::shutdown()
 {
-  QDomElement elem = parent_element.firstChildElement("can_stream");
-  if (!elem.isNull()) {
-    // Create settings object
-    ConnectDialog::Settings settings;
-    
-    // Load protocol
-    if (elem.hasAttribute("protocol")) {
-      settings.protocol = static_cast<CanFrameProcessor::CanProtocol>(elem.attribute("protocol").toInt());
+  if (!running_)
+    return;
+
+  running_ = false;
+
+  // Clean up resources - disconnect signals first
+  if (can_interface_)
+  {
+    disconnect(can_interface_.get(), &QCanBusDevice::framesReceived,
+               this, &DataStreamCAN::processReceivedFrames);
+    disconnect(can_interface_.get(), &QCanBusDevice::errorOccurred,
+               this, &DataStreamCAN::handleCanError);
+
+    if (can_interface_->state() == QCanBusDevice::ConnectedState)
+    {
+      can_interface_->disconnectDevice();
     }
-    
-    // Load database locations
-    QDomElement dbc_elem = elem.firstChildElement("dbc_file");
-    while (!dbc_elem.isNull()) {
-      if (dbc_elem.hasAttribute("path")) {
-        settings.canDatabaseLocations.append(dbc_elem.attribute("path"));
-      }
-      dbc_elem = dbc_elem.nextSiblingElement("dbc_file");
-    }
-    
-    // Apply settings to connect dialog
-    if (connect_dialog_) {
-      connect_dialog_->setSettings(settings);
-    }
-    
-    return true;
   }
-  return false;
+
+  can_interface_.reset();
+  frame_processor_.reset();
 }
 
-void DataStreamCAN::pushSingleCycle()
+bool DataStreamCAN::isRunning() const
 {
+  return running_;
+}
+
+void DataStreamCAN::processReceivedFrames()
+{
+  if (!can_interface_ || !frame_processor_ || !running_)
+    return;
+
   std::lock_guard<std::mutex> lock(mutex());
 
-  // Since readAllFrames is introduced in Qt5.12, reading using for
-  auto n_frames = can_interface_->framesAvailable();
-  for (int i = 0; i < n_frames; i++)
+  // Use readAllFrames which is supported in all Qt versions
+  const QVector<QCanBusFrame> frames = can_interface_->readAllFrames();
+
+  if (frames.isEmpty())
+    return;
+
+  for (const QCanBusFrame &frame : frames)
   {
-    auto frame = can_interface_->readFrame();
-    double timestamp = frame.timeStamp().seconds() + frame.timeStamp().microSeconds() * 1e-6;
-    frame_processor_->ProcessCanFrame(frame.frameId(), (const uint8_t*)frame.payload().data(), 8, timestamp);
+    try
+    {
+      double timestamp = frame.timeStamp().seconds() + frame.timeStamp().microSeconds() * 1e-6;
+      frame_processor_->ProcessCanFrame(
+          frame.frameId(),
+          reinterpret_cast<const uint8_t *>(frame.payload().data()),
+          frame.payload().size(),
+          timestamp);
+    }
+    catch (const std::exception &e)
+    {
+      qWarning() << "Exception processing CAN frame:" << e.what();
+    }
+    catch (...)
+    {
+      qWarning() << "Unknown exception processing CAN frame";
+    }
+  }
+
+  // Notify that new data is available
+  emit dataReceived();
+}
+
+void DataStreamCAN::handleCanError(QCanBusDevice::CanBusError error)
+{
+  if (!can_interface_)
+    return;
+
+  QString errorString;
+  switch (error)
+  {
+  case QCanBusDevice::ReadError:
+    errorString = "Read error";
+    break;
+  case QCanBusDevice::WriteError:
+    errorString = "Write error";
+    break;
+  case QCanBusDevice::ConnectionError:
+    errorString = "Connection error";
+    break;
+  case QCanBusDevice::ConfigurationError:
+    errorString = "Configuration error";
+    break;
+  case QCanBusDevice::OperationError:
+    errorString = "Operation error";
+    break;
+  case QCanBusDevice::TimeoutError:
+    errorString = "Timeout error";
+    break;
+  case QCanBusDevice::UnknownError:
+    errorString = "Unknown error";
+    break;
+  default:
+    errorString = "Error";
+    break;
+  }
+
+  qWarning() << "CAN bus error:" << errorString << "-" << can_interface_->errorString();
+
+  // For serious errors, shutdown the connection
+  if (error == QCanBusDevice::ConnectionError)
+  {
+    shutdown();
   }
 }
 
-void DataStreamCAN::loop()
+bool DataStreamCAN::xmlSaveState(QDomDocument &doc, QDomElement &parent_element) const
 {
-  // Block until both are initalized
-  while (can_interface_ == nullptr || frame_processor_ == nullptr)
-  {
-    std::this_thread::sleep_for(std::chrono::milliseconds(500));
-  }
-  running_ = true;
-  while (running_)
-  {
-    auto prev = std::chrono::high_resolution_clock::now();
-    pushSingleCycle();
-    emit dataReceived();
-    std::this_thread::sleep_until(prev + std::chrono::milliseconds(20));
-  }
+  return true;
+}
+
+bool DataStreamCAN::xmlLoadState(const QDomElement &parent_element)
+{
+  return true;
 }
