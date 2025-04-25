@@ -133,7 +133,7 @@ def main():
     parser = argparse.ArgumentParser(description='CAN bus simulator using DBC file')
     parser.add_argument('dbc_file', help='Path to the DBC file')
     parser.add_argument('--interface', '-i', default='vcan0', help='CAN interface (default: vcan0)')
-    parser.add_argument('--cycle-time', '-t', type=float, default=0.1, help='Time between message cycles in seconds (default: 0.1)')
+    parser.add_argument('--cycle-time', '-t', type=float, default=0.25, help='Time between message cycles in seconds (default: 0.1)')
     
     args = parser.parse_args()
     
