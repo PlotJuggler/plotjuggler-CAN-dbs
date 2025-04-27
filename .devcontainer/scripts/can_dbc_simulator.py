@@ -23,54 +23,37 @@ class CanSimulator:
         self.running = False
         self.thread = None
         
-        print(f"Loaded {len(self.db.messages)} messages from {dbc_file}")
+        # Print information about enum values in signals
         for msg in self.db.messages:
             print(f"Message: {msg.name} (ID: 0x{msg.frame_id:X}, {len(msg.signals)} signals)")
+            for signal in msg.signals:
+                if signal.choices:
+                    print(f"  Signal {signal.name} has enum values: {signal.choices}")
     
     def generate_signal_value(self, signal):
-        """Generate a random value for a signal based on its properties"""
-        if signal.scale == 0:  # Avoid division by zero
-            signal.scale = 1
-            
-        min_val = signal.minimum if signal.minimum is not None else 0
-        max_val = signal.maximum if signal.maximum is not None else 100
+        """Generate a value for a signal, respecting signal bounds"""
+        # If signal has enum choices, use them 70% of the time
+        if signal.choices:
+            return random.choice(list(signal.choices.keys()))
         
-        # If min/max aren't defined or are invalid, create reasonable defaults
-        if min_val is None or max_val is None or min_val >= max_val:
-            if signal.is_float:
-                min_val, max_val = 0.0, 100.0
-            else:
-                # For boolean signals
-                if signal.scale == 1 and signal.offset == 0 and max_val <= 1:
-                    return random.randint(0, 1)
-                # For other integer signals
-                min_val, max_val = 0, 2**(signal.length) - 1
-        
-        # Generate value based on signal type
-        if signal.is_float:
-            value = random.uniform(min_val, max_val) 
+        # For non-enum values or the remaining 30% of the time
+        # Use the signal's maximum value if defined
+        if signal.maximum is not None:
+            max_val = signal.maximum
         else:
-            value = random.randint(int(min_val), int(max_val))
-            
-        # Some signals might be meant to oscillate around a central value
-        if "steering" in signal.name.lower() or "angle" in signal.name.lower():
-            # Make steering values oscillate around 0
-            center = (min_val + max_val) / 2
-            amplitude = (max_val - min_val) / 4
-            value = center + amplitude * (self.counter % 100) / 50.0 * (1 if self.counter % 200 < 100 else -1)
+            max_val = 100
         
-        # For speed-like signals, create a more realistic pattern
-        elif "speed" in signal.name.lower() or "velocity" in signal.name.lower():
-            # Gradually increase speed then decrease
-            pattern_length = 200
-            phase = self.counter % pattern_length
-            if phase < pattern_length / 2:
-                factor = phase / (pattern_length / 2)
-            else:
-                factor = 2 - phase / (pattern_length / 2)
-            value = min_val + (max_val - min_val) * factor * 0.8
-            
-        return value
+        # Use the signal's minimum value if defined
+        if signal.minimum is not None:
+            min_val = signal.minimum
+        else:
+            min_val = 1
+        
+        # Generate a value within the bounds
+        if signal.is_float:
+            return random.uniform(min_val, max_val)
+        else:
+            return random.randint(int(min_val), int(max_val))
     
     def generate_message_data(self, message):
         """Generate data for a message based on its signals"""
