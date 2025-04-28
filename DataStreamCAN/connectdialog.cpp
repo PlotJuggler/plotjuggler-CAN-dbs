@@ -53,8 +53,8 @@
 #include <QSettings>
 
 #include "connectdialog.h"
+#include "PluginsCommonCAN/select_can_database.h"
 #include "ui_connectdialog.h"
-#include "../PluginsCommonCAN/select_can_database.h"
 
 ConnectDialog::ConnectDialog(QWidget *parent) : QDialog(parent),
                                                 m_ui(new Ui::ConnectDialog)
@@ -87,8 +87,6 @@ ConnectDialog::ConnectDialog(QWidget *parent) : QDialog(parent),
     connect(m_ui->cancelButton, &QPushButton::clicked, this, &QDialog::reject);
     connect(m_ui->backendListBox, &QComboBox::currentTextChanged,
             this, &ConnectDialog::backendChanged);
-    connect(m_ui->interfaceListBox, &QComboBox::currentTextChanged,
-            this, &ConnectDialog::interfaceChanged);
     connect(m_ui->loadDatabaseButton, &QPushButton::clicked,
             this, &ConnectDialog::importDatabaseLocation);
 
