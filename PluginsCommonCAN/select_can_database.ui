@@ -7,7 +7,7 @@
                 <x>0</x>
                 <y>0</y>
                 <width>600</width>
-                <height>300</height>
+                <height>320</height>
             </rect>
         </property>
         <property name="windowTitle">
@@ -59,6 +59,25 @@
                                     </widget>
                                 </item>
                             </layout>
+                        </item>
+                    </layout>
+                </widget>
+            </item>
+            <item>
+                <widget class="QGroupBox" name="optionsBox">
+                    <property name="title">
+                        <string>DBC Metadata Options</string>
+                    </property>
+                    <layout class="QVBoxLayout" name="optionsLayout">
+                        <item>
+                            <widget class="QCheckBox" name="enhancedMetadataCheckbox">
+                                <property name="text">
+                                    <string>Use enhanced metadata (enum values, min/max limits)</string>
+                                </property>
+                                <property name="checked">
+                                    <bool>true</bool>
+                                </property>
+                            </widget>
                         </item>
                     </layout>
                 </widget>

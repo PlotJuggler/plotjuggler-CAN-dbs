@@ -22,28 +22,37 @@ DataLoadCAN::DataLoadCAN()
   extensions_.push_back("log");
 }
 
-const std::vector<const char*>& DataLoadCAN::compatibleFileExtensions() const
+const std::vector<const char *> &DataLoadCAN::compatibleFileExtensions() const
 {
   return extensions_;
 }
 
-bool DataLoadCAN::loadCANDatabase(PlotDataMapRef& plot_data_map, const QStringList& dbc_file_locations,
-                                  CanFrameProcessor::CanProtocol protocol)
+bool DataLoadCAN::loadCANDatabase(PlotDataMapRef &plot_data_map, const QStringList &dbc_file_locations,
+                                  CanFrameProcessor::CanProtocol protocol, bool use_enhanced_metadata)
 {
-  if (dbc_file_locations.isEmpty()) {
+  if (dbc_file_locations.isEmpty())
+  {
     return false;
   }
-  
+
   std::vector<std::ifstream> dbc_files;
-  for (const QString& location : dbc_file_locations) {
+  for (const QString &location : dbc_file_locations)
+  {
     dbc_files.emplace_back(location.toStdString());
   }
-  
+
   frame_processor_ = std::make_unique<CanFrameProcessor>(dbc_files, plot_data_map, protocol);
+
+  // Configure enhanced metadata option
+  if (frame_processor_)
+  {
+    frame_processor_->setUseEnhancedMetadata(use_enhanced_metadata);
+  }
+
   return true;
 }
 
-QSize DataLoadCAN::inspectFile(QFile* file)
+QSize DataLoadCAN::inspectFile(QFile *file)
 {
   QTextStream inA(file);
   int linecount = 0;
@@ -61,7 +70,7 @@ QSize DataLoadCAN::inspectFile(QFile* file)
   return table_size;
 }
 
-bool DataLoadCAN::readDataFromFile(FileLoadInfo* fileload_info, PlotDataMapRef& plot_data_map)
+bool DataLoadCAN::readDataFromFile(FileLoadInfo *fileload_info, PlotDataMapRef &plot_data_map)
 {
   bool use_provided_configuration = false;
 
@@ -85,15 +94,21 @@ bool DataLoadCAN::readDataFromFile(FileLoadInfo* fileload_info, PlotDataMapRef& 
   const int columncount = table_size.width();
   file.close();
 
-  DialogSelectCanDatabase* dialog = new DialogSelectCanDatabase(last_used_database_locations_);
+  DialogSelectCanDatabase *dialog = new DialogSelectCanDatabase(last_used_database_locations_);
 
   if (dialog->exec() != static_cast<int>(QDialog::Accepted))
   {
+    delete dialog;
     return false;
   }
-  
+
   last_used_database_locations_ = dialog->GetDatabaseLocations();
-  loadCANDatabase(plot_data_map, last_used_database_locations_, dialog->GetCanProtocol());
+  bool use_enhanced_metadata = dialog->UseEnhancedMetadata();
+  CanFrameProcessor::CanProtocol can_protocol = dialog->GetCanProtocol();
+
+  loadCANDatabase(plot_data_map, last_used_database_locations_, can_protocol, use_enhanced_metadata);
+
+  delete dialog;
 
   file.open(QFile::ReadOnly);
   QTextStream inB(&file);
@@ -121,7 +136,7 @@ bool DataLoadCAN::readDataFromFile(FileLoadInfo* fileload_info, PlotDataMapRef& 
     rxIterator = canlog_rgx.globalMatch(line);
     if (!rxIterator.hasNext())
     {
-      continue;  // skip invalid lines
+      continue; // skip invalid lines
     }
     QRegularExpressionMatch canFrame = rxIterator.next();
     uint64_t frameId = std::stoul(canFrame.captured(3).toStdString(), 0, 16);
@@ -184,13 +199,14 @@ DataLoadCAN::~DataLoadCAN()
 {
 }
 
-bool DataLoadCAN::xmlSaveState(QDomDocument& doc, QDomElement& parent_element) const
+bool DataLoadCAN::xmlSaveState(QDomDocument &doc, QDomElement &parent_element) const
 {
   QDomElement elem = doc.createElement("default");
   elem.setAttribute("time_axis", default_time_axis_.c_str());
-  
+
   // Save database locations
-  for (const QString& location : last_used_database_locations_) {
+  for (const QString &location : last_used_database_locations_)
+  {
     QDomElement dbc_elem = doc.createElement("dbc_file");
     dbc_elem.setAttribute("path", location);
     elem.appendChild(dbc_elem);
@@ -200,7 +216,7 @@ bool DataLoadCAN::xmlSaveState(QDomDocument& doc, QDomElement& parent_element) c
   return true;
 }
 
-bool DataLoadCAN::xmlLoadState(const QDomElement& parent_element)
+bool DataLoadCAN::xmlLoadState(const QDomElement &parent_element)
 {
   QDomElement elem = parent_element.firstChildElement("default");
   if (!elem.isNull())
@@ -209,17 +225,19 @@ bool DataLoadCAN::xmlLoadState(const QDomElement& parent_element)
     {
       default_time_axis_ = elem.attribute("time_axis").toStdString();
     }
-    
+
     // Load database locations
     last_used_database_locations_.clear();
     QDomElement dbc_elem = elem.firstChildElement("dbc_file");
-    while (!dbc_elem.isNull()) {
-      if (dbc_elem.hasAttribute("path")) {
+    while (!dbc_elem.isNull())
+    {
+      if (dbc_elem.hasAttribute("path"))
+      {
         last_used_database_locations_.append(dbc_elem.attribute("path"));
       }
       dbc_elem = dbc_elem.nextSiblingElement("dbc_file");
     }
-    
+
     return true;
   }
   return false;

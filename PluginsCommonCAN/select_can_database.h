@@ -13,20 +13,19 @@
 QT_BEGIN_NAMESPACE
 namespace Ui
 {
-class DialogSelectCanDatabase;
+  class DialogSelectCanDatabase;
 }
 QT_END_NAMESPACE
-
 
 class DialogSelectCanDatabase : public QDialog
 {
   Q_OBJECT
 
 public:
-  explicit DialogSelectCanDatabase(const QStringList& existing_files = QStringList(), QWidget* parent = nullptr);
+  explicit DialogSelectCanDatabase(const QStringList &existing_files = QStringList(), QWidget *parent = nullptr);
   QStringList GetDatabaseLocations() const;
   CanFrameProcessor::CanProtocol GetCanProtocol() const;
-  void setCurrentSettings(const QStringList& locations, CanFrameProcessor::CanProtocol protocol);
+  bool UseEnhancedMetadata() const;
 
   ~DialogSelectCanDatabase() override;
 
@@ -38,9 +37,10 @@ private slots:
   void UpdateButtonStates();
 
 private:
-  Ui::DialogSelectCanDatabase* ui_;
+  Ui::DialogSelectCanDatabase *ui_;
   QStringList database_locations_;
   CanFrameProcessor::CanProtocol protocol_;
+  bool use_enhanced_metadata_ = true;
 };
 
-#endif  // DIALOG_SELECT_CAN_DATABASE_H
+#endif // DIALOG_SELECT_CAN_DATABASE_H
