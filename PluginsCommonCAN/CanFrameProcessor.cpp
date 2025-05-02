@@ -1,6 +1,7 @@
 #include "CanFrameProcessor.h"
 #include "N2kMsg/GenericFastPacket.h"
 #include <QDebug>
+#include <QMessageBox>
 #include <sstream>
 #include <iomanip>
 #include <regex>
@@ -27,20 +28,69 @@ void CanFrameProcessor::LoadAndMergeNetworks(const std::vector<std::ifstream> &d
 {
   if (dbc_files.empty())
   {
+    qWarning() << "No DBC files provided for loading";
     return;
   }
 
-  // Load the first file as the base network
-  can_network_ = dbcppp::INetwork::LoadDBCFromIs(const_cast<std::ifstream &>(dbc_files[0]));
-
-  // Merge additional files if they exist
-  for (size_t i = 1; i < dbc_files.size(); i++)
+  // Attempt to load the first file as the base network
+  try
   {
-    auto additional_network = dbcppp::INetwork::LoadDBCFromIs(const_cast<std::ifstream &>(dbc_files[i]));
-    if (additional_network)
+    qDebug() << "Loading base DBC file...";
+    can_network_ = dbcppp::INetwork::LoadDBCFromIs(const_cast<std::ifstream &>(dbc_files[0]));
+
+    if (!can_network_)
     {
-      can_network_->Merge(std::move(additional_network));
+      qWarning() << "Failed to load base DBC file";
+      return;
     }
+
+    qDebug() << "Successfully loaded base DBC file";
+
+    // Merge additional files if they exist
+    for (size_t i = 1; i < dbc_files.size(); i++)
+    {
+      qDebug() << "Loading additional DBC file" << i << "...";
+      auto additional_network = dbcppp::INetwork::LoadDBCFromIs(const_cast<std::ifstream &>(dbc_files[i]));
+
+      if (additional_network)
+      {
+        try
+        {
+          can_network_->Merge(std::move(additional_network));
+          qDebug() << "Successfully merged DBC file" << i;
+        }
+        catch (const std::exception &e)
+        {
+          qWarning() << "Error merging DBC file" << i << ":" << e.what();
+          // Display a warning message to the user
+          QMessageBox::warning(nullptr, "DBC Merge Error",
+                               QString("Error merging DBC file %1: %2").arg(i).arg(e.what()));
+        }
+      }
+      else
+      {
+        qWarning() << "Failed to load additional DBC file" << i;
+        // Display a warning message to the user
+        QMessageBox::warning(nullptr, "DBC Load Error",
+                             QString("Failed to load additional DBC file %1").arg(i));
+      }
+    }
+  }
+  catch (const std::exception &e)
+  {
+    qCritical() << "Exception while loading/merging DBC files:" << e.what();
+    QMessageBox::critical(nullptr, "DBC Load Error",
+                          QString("Exception while loading DBC files: %1").arg(e.what()));
+  }
+
+  // Log summary
+  if (can_network_)
+  {
+    qDebug() << "DBC network loaded with" << (can_network_->Messages_Size()) << "messages";
+  }
+  else
+  {
+    qCritical() << "Failed to create valid CAN network from DBC files";
   }
 }
 

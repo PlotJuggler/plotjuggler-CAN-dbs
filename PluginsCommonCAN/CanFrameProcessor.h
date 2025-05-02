@@ -39,7 +39,7 @@ private:
   struct SignalMetadata
   {
     std::string name;
-    double min;
+    double min; // TODO: min/max could be used to set the min / max values of the plot automatically
     double max;
     std::string unit;
     std::unordered_map<int64_t, std::string> value_encodings;
