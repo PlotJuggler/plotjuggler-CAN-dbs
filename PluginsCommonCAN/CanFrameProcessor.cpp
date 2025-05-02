@@ -251,6 +251,10 @@ bool CanFrameProcessor::ProcessCanFrameRaw(const uint32_t frame_id, const uint8_
 
     if (has_enum_value)
     {
+      // We store 2 signal into (string & numeric series)
+      // MCU_HMI_ClngCrct_Aux_ActSt      => 16
+      // MCU_HMI_ClnqCrct_Aux_ActSt_enum_value => Fault
+
       // Store the string representation for reference
       auto &string_plot = data_map_.getOrCreateStringSeries(series_name + "_enum_value");
       string_plot.pushBack({timestamp_secs, enum_str});
