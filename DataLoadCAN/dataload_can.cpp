@@ -204,14 +204,6 @@ bool DataLoadCAN::xmlSaveState(QDomDocument &doc, QDomElement &parent_element) c
   QDomElement elem = doc.createElement("default");
   elem.setAttribute("time_axis", default_time_axis_.c_str());
 
-  // Save database locations
-  for (const QString &location : last_used_database_locations_)
-  {
-    QDomElement dbc_elem = doc.createElement("dbc_file");
-    dbc_elem.setAttribute("path", location);
-    elem.appendChild(dbc_elem);
-  }
-
   parent_element.appendChild(elem);
   return true;
 }
@@ -224,21 +216,8 @@ bool DataLoadCAN::xmlLoadState(const QDomElement &parent_element)
     if (elem.hasAttribute("time_axis"))
     {
       default_time_axis_ = elem.attribute("time_axis").toStdString();
+      return true;
     }
-
-    // Load database locations
-    last_used_database_locations_.clear();
-    QDomElement dbc_elem = elem.firstChildElement("dbc_file");
-    while (!dbc_elem.isNull())
-    {
-      if (dbc_elem.hasAttribute("path"))
-      {
-        last_used_database_locations_.append(dbc_elem.attribute("path"));
-      }
-      dbc_elem = dbc_elem.nextSiblingElement("dbc_file");
-    }
-
-    return true;
   }
   return false;
 }
