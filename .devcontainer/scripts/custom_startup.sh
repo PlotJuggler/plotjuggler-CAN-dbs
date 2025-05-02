@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Wait for desktop to be ready
 /usr/bin/desktop_ready
 
