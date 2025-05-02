@@ -81,12 +81,16 @@ public:
         QList<ConfigurationItem> configurations;
         bool useConfigurationEnabled = false;
         CanFrameProcessor::CanProtocol protocol = CanFrameProcessor::RAW;
+        bool use_enhanced_metadata = true;
     };
 
     explicit ConnectDialog(QWidget *parent = nullptr);
     ~ConnectDialog();
 
     Settings settings() const;
+    void setDatabaseSettings(const QStringList &locations,
+                             CanFrameProcessor::CanProtocol protocol,
+                             bool use_enhanced_metadata);
     void applySettings(const Settings &settings);
 
 private slots:

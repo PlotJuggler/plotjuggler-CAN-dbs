@@ -266,6 +266,18 @@ ConnectDialog::Settings ConnectDialog::settings() const
     return m_currentSettings;
 }
 
+void ConnectDialog::setDatabaseSettings(const QStringList &locations,
+                                        CanFrameProcessor::CanProtocol protocol,
+                                        bool use_enhanced_metadata)
+{
+    m_currentSettings.canDatabaseLocations = locations;
+    m_currentSettings.protocol = protocol;
+    m_currentSettings.use_enhanced_metadata = use_enhanced_metadata;
+
+    // Enable OK button if we have database files
+    m_ui->okButton->setEnabled(!locations.isEmpty());
+}
+
 void ConnectDialog::applySettings(const Settings &settings)
 {
     m_currentSettings = settings;
@@ -404,8 +416,8 @@ void ConnectDialog::importDatabaseLocation()
 
     m_currentSettings.canDatabaseLocations = dialog->GetDatabaseLocations();
     m_currentSettings.protocol = dialog->GetCanProtocol();
+    m_currentSettings.use_enhanced_metadata = dialog->UseEnhancedMetadata();
 
-    // Enable OK button if we have database files
     m_ui->okButton->setEnabled(!m_currentSettings.canDatabaseLocations.isEmpty());
 
     delete dialog;

@@ -94,21 +94,29 @@ void DataStreamCAN::connectCanInterface()
       can_interface_->setConfigurationParameter(item.first, item.second);
   }
 
-  // Open dialog for selecting DBC files and metadata options
-  DialogSelectCanDatabase *dialog = new DialogSelectCanDatabase(p.canDatabaseLocations);
+  // Only open dialog if no database locations are configured
+  QStringList database_locations = p.canDatabaseLocations;
+  CanFrameProcessor::CanProtocol protocol = p.protocol;
+  bool use_enhanced_metadata = p.use_enhanced_metadata;
 
-  if (dialog->exec() != static_cast<int>(QDialog::Accepted))
+  if (database_locations.isEmpty())
   {
+    DialogSelectCanDatabase *dialog = new DialogSelectCanDatabase();
+    if (dialog->exec() != static_cast<int>(QDialog::Accepted))
+    {
+      delete dialog;
+      can_interface_.reset();
+      return;
+    }
+
+    database_locations = dialog->GetDatabaseLocations();
+    protocol = dialog->GetCanProtocol();
+    use_enhanced_metadata = dialog->UseEnhancedMetadata();
+
+    connect_dialog_->setDatabaseSettings(database_locations, protocol, use_enhanced_metadata);
+
     delete dialog;
-    can_interface_.reset();
-    return;
   }
-
-  QStringList database_locations = dialog->GetDatabaseLocations();
-  CanFrameProcessor::CanProtocol protocol = dialog->GetCanProtocol();
-  bool use_enhanced_metadata = dialog->UseEnhancedMetadata();
-
-  delete dialog;
 
   // Connect signals before connecting the device
   connect(can_interface_.get(), &QCanBusDevice::framesReceived,
