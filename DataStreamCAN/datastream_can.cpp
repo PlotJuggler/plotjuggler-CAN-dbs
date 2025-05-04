@@ -337,7 +337,7 @@ bool DataStreamCAN::applyStoredSettings()
     frame_processor_->setUseEnhancedMetadata(p.use_enhanced_metadata);
   }
 
-  // Add success message
+  // Success message
   QVariant bitRate = can_interface_->configurationParameter(QCanBusDevice::BitRateKey);
   QString connectionMsg;
 
