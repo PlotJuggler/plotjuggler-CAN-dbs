@@ -169,6 +169,13 @@ bool DataStreamCAN::start(QStringList *pre_selected_sources)
     return true;
   }
 
+  // Clear previous data before starting new session
+  {
+    std::lock_guard<std::mutex> lock(mutex());
+    dataMap().clear();
+    emit clearBuffers();
+  }
+
   if (!connect_dialog_->exec() || connect_dialog_->result() != QDialog::Accepted)
   {
     return false;
