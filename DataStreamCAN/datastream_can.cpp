@@ -48,10 +48,13 @@
 **
 ****************************************************************************/
 
-#include <QDebug>
 #include <QCanBus>
 #include <QCanBusFrame>
+#include <QDebug>
 #include <QDomDocument>
+#include <QMainWindow>
+#include <QLabel>
+#include <QTimer>
 #include <QSettings>
 #include <fstream>
 #include <vector>
@@ -65,12 +68,28 @@ DataStreamCAN::DataStreamCAN()
     : connect_dialog_(std::make_unique<ConnectDialog>()),
       running_(false)
 {
+  // Create the configuration action and add it to the available actions
+  QAction *config_action = new QAction("Configure CAN Interface", this);
+  connect(config_action, &QAction::triggered, this, &DataStreamCAN::showConfigDialog);
+  _available_actions.push_back(config_action);
+
   connect(connect_dialog_.get(), &QDialog::accepted, this, &DataStreamCAN::connectCanInterface);
 }
 
 DataStreamCAN::~DataStreamCAN()
 {
   shutdown();
+}
+
+const std::vector<QAction *> &DataStreamCAN::availableActions()
+{
+  return _available_actions;
+}
+
+void DataStreamCAN::showConfigDialog()
+{
+  // Simply show the dialog
+  connect_dialog_->exec();
 }
 
 void DataStreamCAN::connectCanInterface()
@@ -82,9 +101,11 @@ void DataStreamCAN::connectCanInterface()
 
   if (!can_interface_)
   {
-    qWarning() << tr("Error creating device '%1', reason: '%2'")
-                      .arg(p.backendName)
-                      .arg(errorString);
+    QString errorMsg = tr("Error creating device '%1', reason: '%2'")
+                           .arg(p.backendName)
+                           .arg(errorString);
+    qWarning() << errorMsg;
+    displayStatusMessage(errorMsg);
     return;
   }
 
@@ -126,7 +147,9 @@ void DataStreamCAN::connectCanInterface()
 
   if (!can_interface_->connectDevice())
   {
-    qWarning() << tr("Connection error: %1").arg(can_interface_->errorString());
+    QString errorMsg = tr("Connection error: %1").arg(can_interface_->errorString());
+    qWarning() << errorMsg;
+    displayStatusMessage(errorMsg);
     can_interface_.reset();
     return;
   }
@@ -146,20 +169,196 @@ void DataStreamCAN::connectCanInterface()
     frame_processor_->setUseEnhancedMetadata(use_enhanced_metadata);
   }
 
+  // Display connection information
+  QString connectionMsg;
   QVariant bitRate = can_interface_->configurationParameter(QCanBusDevice::BitRateKey);
+
   if (bitRate.isValid())
   {
-    qInfo() << tr("Backend: %1, connected to %2 at %3 kBit/s")
-                   .arg(p.backendName)
-                   .arg(p.deviceInterfaceName)
-                   .arg(bitRate.toInt() / 1000);
+    connectionMsg = tr("CAN connected: %1 on %2 at %3 kBit/s")
+                        .arg(p.backendName)
+                        .arg(p.deviceInterfaceName)
+                        .arg(bitRate.toInt() / 1000);
   }
   else
   {
-    qInfo() << tr("Backend: %1, connected to %2")
-                   .arg(p.backendName)
-                   .arg(p.deviceInterfaceName);
+    connectionMsg = tr("CAN connected: %1 on %2")
+                        .arg(p.backendName)
+                        .arg(p.deviceInterfaceName);
   }
+
+  qInfo() << connectionMsg;
+  displayStatusMessage(connectionMsg);
+}
+
+bool DataStreamCAN::applyStoredSettings()
+{
+  QSettings settings;
+  settings.beginGroup("DataStreamCAN");
+
+  // Check if we have previous settings
+  if (!settings.contains("backend") || !settings.contains("interface"))
+  {
+    settings.endGroup();
+    return false;
+  }
+
+  ConnectDialog::Settings p;
+  p.backendName = settings.value("backend").toString();
+  p.deviceInterfaceName = settings.value("interface").toString();
+  p.useConfigurationEnabled = true;
+
+  // Load CAN database files
+  int dbcCount = settings.beginReadArray("dbc_files");
+  QStringList dbcFiles;
+  for (int i = 0; i < dbcCount; ++i)
+  {
+    settings.setArrayIndex(i);
+    dbcFiles.append(settings.value("path").toString());
+  }
+  settings.endArray();
+
+  if (dbcFiles.isEmpty())
+  {
+    settings.endGroup();
+    return false;
+  }
+
+  p.canDatabaseLocations = dbcFiles;
+
+  // Load protocol
+  QString protocol = settings.value("protocol", "RAW").toString();
+  if (protocol == "RAW")
+    p.protocol = CanFrameProcessor::RAW;
+  else if (protocol == "NMEA2K")
+    p.protocol = CanFrameProcessor::NMEA2K;
+  else if (protocol == "J1939")
+    p.protocol = CanFrameProcessor::J1939;
+
+  // Load use_enhanced_metadata
+  p.use_enhanced_metadata = settings.value("use_enhanced_metadata", true).toBool();
+
+  // Load configuration settings
+  if (settings.contains("loopback"))
+  {
+    ConnectDialog::ConfigurationItem item;
+    item.first = QCanBusDevice::LoopbackKey;
+    item.second = settings.value("loopback");
+    p.configurations.append(item);
+  }
+
+  if (settings.contains("receive_own"))
+  {
+    ConnectDialog::ConfigurationItem item;
+    item.first = QCanBusDevice::ReceiveOwnKey;
+    item.second = settings.value("receive_own");
+    p.configurations.append(item);
+  }
+
+  if (settings.contains("error_filter"))
+  {
+    ConnectDialog::ConfigurationItem item;
+    item.first = QCanBusDevice::ErrorFilterKey;
+    bool ok = false;
+    int dec = settings.value("error_filter").toString().toInt(&ok);
+    if (ok)
+    {
+      item.second = QVariant::fromValue(QCanBusFrame::FrameErrors(dec));
+      p.configurations.append(item);
+    }
+  }
+
+  if (settings.contains("bitrate"))
+  {
+    ConnectDialog::ConfigurationItem item;
+    item.first = QCanBusDevice::BitRateKey;
+    item.second = settings.value("bitrate");
+    p.configurations.append(item);
+  }
+
+  // Add support for flexible data rate (CAN FD)
+  ConnectDialog::ConfigurationItem fdItem;
+  fdItem.first = QCanBusDevice::CanFdKey;
+  fdItem.second = QVariant(true);
+  p.configurations.append(fdItem);
+
+  settings.endGroup();
+
+  // Update the dialog settings for future saves
+  connect_dialog_->applySettings(p);
+
+  // Try to connect using these settings
+  QString errorString;
+  can_interface_.reset(QCanBus::instance()->createDevice(p.backendName, p.deviceInterfaceName, &errorString));
+
+  if (!can_interface_)
+  {
+    QString errorMsg = tr("Error creating device '%1', reason: '%2'")
+                           .arg(p.backendName)
+                           .arg(errorString);
+    qWarning() << errorMsg;
+    displayStatusMessage(errorMsg);
+    return false;
+  }
+
+  if (p.useConfigurationEnabled)
+  {
+    for (const ConnectDialog::ConfigurationItem &item : p.configurations)
+      can_interface_->setConfigurationParameter(item.first, item.second);
+  }
+
+  // Connect signals before connecting the device
+  connect(can_interface_.get(), &QCanBusDevice::framesReceived,
+          this, &DataStreamCAN::processReceivedFrames);
+  connect(can_interface_.get(), &QCanBusDevice::errorOccurred,
+          this, &DataStreamCAN::handleCanError);
+
+  if (!can_interface_->connectDevice())
+  {
+    QString errorMsg = tr("Connection error: %1").arg(can_interface_->errorString());
+    qWarning() << errorMsg;
+    displayStatusMessage(errorMsg);
+    can_interface_.reset();
+    return false;
+  }
+
+  // Load multiple DBC files
+  std::vector<std::ifstream> dbc_files;
+  for (const QString &location : p.canDatabaseLocations)
+  {
+    dbc_files.emplace_back(location.toStdString());
+  }
+
+  frame_processor_ = std::make_unique<CanFrameProcessor>(dbc_files, dataMap(), p.protocol);
+
+  // Configure enhanced metadata
+  if (frame_processor_)
+  {
+    frame_processor_->setUseEnhancedMetadata(p.use_enhanced_metadata);
+  }
+
+  // Add success message
+  QVariant bitRate = can_interface_->configurationParameter(QCanBusDevice::BitRateKey);
+  QString connectionMsg;
+
+  if (bitRate.isValid())
+  {
+    connectionMsg = tr("CAN connected: %1 on %2 at %3 kBit/s")
+                        .arg(p.backendName)
+                        .arg(p.deviceInterfaceName)
+                        .arg(bitRate.toInt() / 1000);
+  }
+  else
+  {
+    connectionMsg = tr("CAN connected: %1 on %2")
+                        .arg(p.backendName)
+                        .arg(p.deviceInterfaceName);
+  }
+
+  qInfo() << connectionMsg;
+  displayStatusMessage(connectionMsg);
+
+  return true;
 }
 
 bool DataStreamCAN::start(QStringList *pre_selected_sources)
@@ -176,9 +375,16 @@ bool DataStreamCAN::start(QStringList *pre_selected_sources)
     emit clearBuffers();
   }
 
-  if (!connect_dialog_->exec() || connect_dialog_->result() != QDialog::Accepted)
+  // Try to apply stored settings first
+  bool settings_applied = applyStoredSettings();
+
+  // Show dialog if we couldn't apply stored settings
+  if (!settings_applied)
   {
-    return false;
+    if (!connect_dialog_->exec() || connect_dialog_->result() != QDialog::Accepted)
+    {
+      return false;
+    }
   }
 
   // Check interface and frame processor were properly initialized
@@ -294,7 +500,11 @@ void DataStreamCAN::handleCanError(QCanBusDevice::CanBusError error)
     break;
   }
 
-  qWarning() << "CAN bus error:" << errorString << "-" << can_interface_->errorString();
+  QString errorMsg = tr("CAN bus error: %1 - %2")
+                         .arg(errorString)
+                         .arg(can_interface_->errorString());
+  qWarning() << errorMsg;
+  displayStatusMessage(errorMsg);
 
   // For serious errors, shutdown the connection
   if (error == QCanBusDevice::ConnectionError)
@@ -311,4 +521,30 @@ bool DataStreamCAN::xmlSaveState(QDomDocument &doc, QDomElement &parent_element)
 bool DataStreamCAN::xmlLoadState(const QDomElement &parent_element)
 {
   return true;
+}
+
+void DataStreamCAN::displayStatusMessage(const QString &message)
+{
+  // Find the MainWindow instance
+  for (QWidget *widget : QApplication::topLevelWidgets())
+  {
+    if (QMainWindow *mainWindow = qobject_cast<QMainWindow *>(widget))
+    {
+      // Find status widgets by their object names
+      QWidget *statusBar = mainWindow->findChild<QWidget *>("widgetStatusBar");
+      if (statusBar)
+      {
+        QLabel *statusLabel = statusBar->findChild<QLabel *>("statusLabel");
+        if (statusLabel)
+        {
+          statusLabel->setText(message);
+          statusBar->setHidden(false);
+          // Set up timer to hide the message after 7 seconds
+          QTimer::singleShot(7000, statusBar, [statusBar]()
+                             { statusBar->setHidden(true); });
+          break;
+        }
+      }
+    }
+  }
 }

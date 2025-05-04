@@ -3,6 +3,7 @@
 #include <QtPlugin>
 #include <QCanBus>
 #include <QCanBusFrame>
+#include <QAction>
 #include <memory>
 
 #include <PlotJuggler/datastreamer_base.h>
@@ -37,14 +38,24 @@ public:
   bool xmlSaveState(QDomDocument &doc, QDomElement &parent_element) const override;
   bool xmlLoadState(const QDomElement &parent_element) override;
 
+  const std::vector<QAction *> &availableActions() override;
+
 private slots:
   void connectCanInterface();
   void processReceivedFrames();
   void handleCanError(QCanBusDevice::CanBusError error);
+  void showConfigDialog();
 
 private:
+  bool applyStoredSettings();
+
   std::unique_ptr<ConnectDialog> connect_dialog_;
   std::unique_ptr<QCanBusDevice> can_interface_;
   std::unique_ptr<CanFrameProcessor> frame_processor_;
   bool running_;
+
+  // Configure gear icon
+  std::vector<QAction *> _available_actions;
+  // Display messages in the MainWindow's status bar
+  void displayStatusMessage(const QString &message);
 };
