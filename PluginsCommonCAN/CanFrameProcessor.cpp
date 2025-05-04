@@ -146,7 +146,7 @@ void CanFrameProcessor::InitializeSignalMetadata()
 
       if (protocol_ == CanProtocol::RAW)
       {
-        signal_id = "can_frames/" + msg.Name() + "/" + sig.Name();
+        signal_id = msg.Name() + "/" + sig.Name();
       }
       // Untested
       else if (protocol_ == CanProtocol::NMEA2K || protocol_ == CanProtocol::J1939)
@@ -236,7 +236,7 @@ bool CanFrameProcessor::ProcessCanFrameRaw(const uint32_t frame_id, const uint8_
 
   const dbcppp::IMessage *msg = messages_iter->second;
 
-  const std::string base_name = "can_frames/" + msg->Name() +
+  const std::string base_name = msg->Name() +
                                 " (0x" +
                                 (std::stringstream() << std::hex << std::uppercase << msg->Id()).str() +
                                 ")/";
@@ -279,7 +279,7 @@ bool CanFrameProcessor::ProcessCanFrameRaw(const uint32_t frame_id, const uint8_
     std::string series_name = base_name + signal_name;
 
     // Create unique signal identifier for metadata lookup
-    std::string signal_id = "can_frames/" + msg->Name() + "/" + sig.Name();
+    std::string signal_id = msg->Name() + "/" + sig.Name();
 
     // Check signal metadata directly for enum values
     auto metadata_it = signal_metadata_.find(signal_id);
