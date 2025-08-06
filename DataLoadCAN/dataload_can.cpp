@@ -115,6 +115,11 @@ bool DataLoadCAN::readDataFromFile(FileLoadInfo* fileload_info, PlotDataMapRef& 
     }
     QRegularExpressionMatch canFrame = rxIterator.next();
     uint64_t frameId = std::stoul(canFrame.captured(3).toStdString(), 0, 16);
+    if (canFrame.capturedLength(3) == 8)
+    {
+      // Extended (29-bit) address. Mark it as such, .dbc-style, with bit 31 == '1'
+      frameId |= 0x0000000080000000;
+    }
     double frameTime = std::stod(canFrame.captured(1).toStdString());
 
     int dlc = canFrame.capturedLength(4) / 2;
