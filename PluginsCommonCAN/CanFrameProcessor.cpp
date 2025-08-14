@@ -70,8 +70,10 @@ bool CanFrameProcessor::ProcessCanFrameRaw(const uint32_t frame_id, const uint8_
           (mux_sig && (mux_sig->Decode(data_ptr) == sig.MultiplexerSwitchValue())))
       {
         double decoded_val = sig.RawToPhys(sig.Decode(data_ptr));
-        auto str = QString("can_frames/%1/%2")
-                       .arg(QString::number(msg->Id()), QString::fromStdString(sig.Name()))
+        auto str = QString("can_frames/%1 (%2)/%3")
+                       .arg(QString::fromStdString(msg->Name()),
+                            QString::number(msg->Id()),
+                            QString::fromStdString(sig.Name()))
                        .toStdString();
         // qCritical() << str.c_str();
         auto it = data_map_.numeric.find(str);
