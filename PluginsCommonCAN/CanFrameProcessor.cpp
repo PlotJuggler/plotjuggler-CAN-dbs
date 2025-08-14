@@ -1,3 +1,4 @@
+#include <QDebug>
 #include "CanFrameProcessor.h"
 #include "N2kMsg/GenericFastPacket.h"
 
@@ -93,6 +94,7 @@ bool CanFrameProcessor::ProcessCanFrameRaw(const uint32_t frame_id, const uint8_
   }
   else
   {
+    //qDebug() << "Unknown FrameID!";
     return false;
   }
 }

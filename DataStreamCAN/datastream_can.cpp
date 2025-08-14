@@ -38,6 +38,7 @@ void DataStreamCAN::connectCanInterface()
     for (const ConnectDialog::ConfigurationItem& item : p.configurations)
       can_interface_->setConfigurationParameter(item.first, item.second);
   }
+  can_interface_->setConfigurationParameter(QCanBusDevice::CanFdKey, true);
 
   if (!can_interface_->connectDevice())
   {
@@ -117,8 +118,14 @@ void DataStreamCAN::pushSingleCycle()
   for (int i = 0; i < n_frames; i++)
   {
     auto frame = can_interface_->readFrame();
+    auto id = frame.frameId();
     double timestamp = frame.timeStamp().seconds() + frame.timeStamp().microSeconds() * 1e-6;
-    frame_processor_->ProcessCanFrame(frame.frameId(), (const uint8_t*)frame.payload().data(), 8, timestamp);
+
+    //set bit 31 if extended, so that it is found in the dbc
+    if (id > 0x7FF)
+	id = id | (1<<31);
+    frame_processor_->ProcessCanFrame(id, (const uint8_t*)frame.payload().data(), frame.payload().length(), timestamp);
+    //qDebug() << tr("Processed Single Frame with id:%2 (length: %1)").arg(frame.payload().length()).arg(id);
   }
 }
 
