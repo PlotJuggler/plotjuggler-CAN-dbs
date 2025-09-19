@@ -19,6 +19,7 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
     git \
     iproute2 \
     kmod \
+    libfmt-dev \
     liblz4-dev \
     libmosquittopp-dev \
     libprotoc-dev \
