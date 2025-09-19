@@ -42,7 +42,7 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
 ENV PATH="${PATH}:/usr/lib/cargo/bin"
 
 # Dirty, but it is only for dev
-RUN  pip3 install --break-system-packages cantools
+RUN pip3 install --break-system-packages --ignore-installed cantools
 
 WORKDIR /opt/plotjuggler
 
