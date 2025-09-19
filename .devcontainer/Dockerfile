@@ -14,8 +14,8 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
     build-essential \
     can-utils \
     cmake \
-    file \
     fd-find \
+    file \
     git \
     iproute2 \
     kmod \
@@ -30,11 +30,11 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
     libqt5x11extras5-dev \
     libzmq3-dev \
     libzstd-dev \
-    qtbase5-dev \
-    qttools5-dev-tools \
-    qttools5-dev \
     python3-can \
     python3-pip \
+    qtbase5-dev \
+    qttools5-dev \
+    qttools5-dev-tools \
     wget \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
