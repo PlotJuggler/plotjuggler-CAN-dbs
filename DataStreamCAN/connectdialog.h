@@ -53,18 +53,15 @@
 
 #include <QCanBusDevice>
 #include <QCanBusDeviceInfo>
-
-#include <QFile>
-#include <QFileDialog>
 #include <QDialog>
 
 #include "../PluginsCommonCAN/CanFrameProcessor.h"
 
-
 QT_BEGIN_NAMESPACE
 
-namespace Ui {
-class ConnectDialog;
+namespace Ui
+{
+    class ConnectDialog;
 }
 
 QT_END_NAMESPACE
@@ -76,31 +73,37 @@ class ConnectDialog : public QDialog
 public:
     typedef QPair<QCanBusDevice::ConfigurationKey, QVariant> ConfigurationItem;
 
-    struct Settings {
+    struct Settings
+    {
         QString backendName;
         QString deviceInterfaceName;
-        QString canDatabaseLocation;
+        QStringList canDatabaseLocations;
         QList<ConfigurationItem> configurations;
         bool useConfigurationEnabled = false;
-        CanFrameProcessor::CanProtocol protocol;
+        CanFrameProcessor::CanProtocol protocol = CanFrameProcessor::RAW;
+        bool use_enhanced_metadata = true;
     };
 
     explicit ConnectDialog(QWidget *parent = nullptr);
     ~ConnectDialog();
 
     Settings settings() const;
+    void setDatabaseSettings(const QStringList &locations,
+                             CanFrameProcessor::CanProtocol protocol,
+                             bool use_enhanced_metadata);
+    void applySettings(const Settings &settings);
 
 private slots:
     void backendChanged(const QString &backend);
     void interfaceChanged(const QString &interface);
     void ok();
-    void cancel();
 
 private:
     QString configurationValue(QCanBusDevice::ConfigurationKey key);
-    void revertSettings();
     void updateSettings();
     void importDatabaseLocation();
+    void loadSettings();
+    void saveSettings();
 
     Ui::ConnectDialog *m_ui = nullptr;
     Settings m_currentSettings;

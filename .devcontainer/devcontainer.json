@@ -1,0 +1,44 @@
+{
+    "name": "Ubuntu Jazzy (22.04) Workspace",
+    "appPort": [
+        "443:6901"
+    ],
+    "build": {
+        "dockerfile": "Dockerfile"
+    },
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "donjayamanne.githistory",
+                "eamodio.gitlens",
+                "mads-hartmann.bash-ide-vscode",
+                "mhutchie.git-graph",
+                "ms-vscode.cpptools-extension-pack",
+                "ms-vscode.cpptools",
+                "ms-vscode.makefile-tools",
+                "redhat.vscode-xml",
+                "streetsidesoftware.code-spell-checker",
+                "timonwong.shellcheck",
+                "nefrob.vscode-just-syntax",
+                "yzhang.markdown-all-in-one"
+            ]
+        }
+    },
+    "containerEnv": {
+        "VNC_PW": "kasm_user"
+    },
+    "mounts": [
+        "source=/lib/modules,target=/lib/modules,type=bind",
+        "source=${localEnv:HOME}/.netrc,target=/home/kasm-user/.netrc,type=bind",
+        "source=${localEnv:HOME}/_developer,target=/home/kasm-user/_developer,type=bind"
+    ],
+    "overrideCommand": false,
+    "remoteUser": "kasm-user",
+    "runArgs": [
+        "--cap-add=ALL",
+        "--name=kasm-plotjuggler-can-dbs-workspace",
+        "--privileged"
+    ],
+    "workspaceFolder": "/home/kasm-user/plotjuggler-can-dbs",
+    "workspaceMount": "source=${localWorkspaceFolder},target=/home/kasm-user/plotjuggler-can-dbs,type=bind",
+}

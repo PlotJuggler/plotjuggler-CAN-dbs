@@ -3,13 +3,13 @@
 #include <QtPlugin>
 #include <QCanBus>
 #include <QCanBusFrame>
-#include <thread>
+#include <QAction>
+#include <memory>
 
 #include <PlotJuggler/datastreamer_base.h>
 
 #include "connectdialog.h"
 #include "../PluginsCommonCAN/CanFrameProcessor.h"
-
 
 class DataStreamCAN : public PJ::DataStreamer
 {
@@ -19,12 +19,13 @@ class DataStreamCAN : public PJ::DataStreamer
 
 public:
   DataStreamCAN();
-  bool start(QStringList*) override;
-  void shutdown() override;
-  bool isRunning() const override;
   ~DataStreamCAN() override;
 
-  const char* name() const override
+  bool start(QStringList *pre_selected_sources = nullptr) override;
+  void shutdown() override;
+  bool isRunning() const override;
+
+  const char *name() const override
   {
     return "CAN Streamer";
   }
@@ -34,20 +35,27 @@ public:
     return false;
   }
 
-  bool xmlSaveState(QDomDocument& doc, QDomElement& parent_element) const override;
-  bool xmlLoadState(const QDomElement& parent_element) override;
+  bool xmlSaveState(QDomDocument &doc, QDomElement &parent_element) const override;
+  bool xmlLoadState(const QDomElement &parent_element) override;
+
+  const std::vector<QAction *> &availableActions() override;
 
 private slots:
   void connectCanInterface();
+  void processReceivedFrames();
+  void handleCanError(QCanBusDevice::CanBusError error);
+  void showConfigDialog();
 
 private:
-  ConnectDialog *connect_dialog_;
-  QCanBusDevice *can_interface_ = nullptr;
+  bool applyStoredSettings();
+
+  std::unique_ptr<ConnectDialog> connect_dialog_;
+  std::unique_ptr<QCanBusDevice> can_interface_;
   std::unique_ptr<CanFrameProcessor> frame_processor_;
-
-  std::thread thread_;
   bool running_;
-  void loop();
-  void pushSingleCycle();
-};
 
+  // Configure gear icon
+  std::vector<QAction *> _available_actions;
+  // Display messages in the MainWindow's status bar
+  void displayStatusMessage(const QString &message);
+};
