@@ -5,10 +5,12 @@
 #include "ui_select_can_database.h"
 
 // Public
-DialogSelectCanDatabase::DialogSelectCanDatabase(const QStringList &existing_files, QWidget *parent)
-    : QDialog(parent), ui_(new Ui::DialogSelectCanDatabase), database_locations_(existing_files),
-      protocol_(CanFrameProcessor::RAW), use_enhanced_metadata_(true)
-{
+DialogSelectCanDatabase::DialogSelectCanDatabase(const QStringList& existing_files, QWidget* parent)
+  : QDialog(parent)
+  , ui_(new Ui::DialogSelectCanDatabase)
+  , database_locations_(existing_files)
+  , protocol_(CanFrameProcessor::RAW)
+  , use_enhanced_metadata_(true) {
   ui_->setupUi(this);
   ui_->protocolListBox->addItem(tr("RAW"), QVariant(true));
   ui_->protocolListBox->addItem(tr("NMEA2K"), QVariant(true));
@@ -21,8 +23,7 @@ DialogSelectCanDatabase::DialogSelectCanDatabase(const QStringList &existing_fil
   // Load settings if available
   QSettings settings;
   settings.beginGroup("CanDatabase");
-  if (settings.contains("use_enhanced_metadata"))
-  {
+  if (settings.contains("use_enhanced_metadata")) {
     bool use_metadata = settings.value("use_enhanced_metadata").toBool();
     ui_->enhancedMetadataCheckbox->setChecked(use_metadata);
     use_enhanced_metadata_ = use_metadata;
@@ -30,8 +31,7 @@ DialogSelectCanDatabase::DialogSelectCanDatabase(const QStringList &existing_fil
   settings.endGroup();
 
   // Populate list with existing files
-  for (const QString &file : existing_files)
-  {
+  for (const QString& file : existing_files) {
     ui_->dbcFilesList->addItem(file);
   }
 
@@ -45,44 +45,36 @@ DialogSelectCanDatabase::DialogSelectCanDatabase(const QStringList &existing_fil
   connect(ui_->dbcFilesList, &QListWidget::itemSelectionChanged, this, &DialogSelectCanDatabase::UpdateButtonStates);
 
   // Connect checkbox signals
-  connect(ui_->enhancedMetadataCheckbox, &QCheckBox::toggled, [this](bool checked)
-          { this->use_enhanced_metadata_ = checked; });
+  connect(ui_->enhancedMetadataCheckbox, &QCheckBox::toggled,
+          [this](bool checked) { this->use_enhanced_metadata_ = checked; });
 }
 
-QStringList DialogSelectCanDatabase::GetDatabaseLocations() const
-{
+QStringList DialogSelectCanDatabase::GetDatabaseLocations() const {
   return database_locations_;
 }
 
-CanFrameProcessor::CanProtocol DialogSelectCanDatabase::GetCanProtocol() const
-{
+CanFrameProcessor::CanProtocol DialogSelectCanDatabase::GetCanProtocol() const {
   return protocol_;
 }
 
-bool DialogSelectCanDatabase::UseEnhancedMetadata() const
-{
+bool DialogSelectCanDatabase::UseEnhancedMetadata() const {
   return use_enhanced_metadata_;
 }
 
-DialogSelectCanDatabase::~DialogSelectCanDatabase()
-{
+DialogSelectCanDatabase::~DialogSelectCanDatabase() {
   delete ui_;
 }
 
 // Private slots
-void DialogSelectCanDatabase::Ok()
-{
+void DialogSelectCanDatabase::Ok() {
   auto protocol_text = ui_->protocolListBox->currentText().toStdString();
-  if (protocol_text == "RAW")
-  {
+  if (protocol_text == "RAW") {
     protocol_ = CanFrameProcessor::CanProtocol::RAW;
   }
-  else if (protocol_text == "NMEA2K")
-  {
+  else if (protocol_text == "NMEA2K") {
     protocol_ = CanFrameProcessor::CanProtocol::NMEA2K;
   }
-  else if (protocol_text == "J1939")
-  {
+  else if (protocol_text == "J1939") {
     protocol_ = CanFrameProcessor::CanProtocol::J1939;
   }
 
@@ -95,22 +87,17 @@ void DialogSelectCanDatabase::Ok()
   accept();
 }
 
-void DialogSelectCanDatabase::Cancel()
-{
+void DialogSelectCanDatabase::Cancel() {
   reject();
 }
 
-void DialogSelectCanDatabase::AddDatabaseFile()
-{
+void DialogSelectCanDatabase::AddDatabaseFile() {
   QStringList fileLocations =
       QFileDialog::getOpenFileNames(this, tr("Select CAN database"), QString(), tr("CAN database (*.dbc)"));
 
-  if (!fileLocations.isEmpty())
-  {
-    for (const QString &location : fileLocations)
-    {
-      if (!database_locations_.contains(location))
-      {
+  if (!fileLocations.isEmpty()) {
+    for (const QString& location : fileLocations) {
+      if (!database_locations_.contains(location)) {
         database_locations_.append(location);
         ui_->dbcFilesList->addItem(location);
       }
@@ -121,11 +108,9 @@ void DialogSelectCanDatabase::AddDatabaseFile()
   }
 }
 
-void DialogSelectCanDatabase::RemoveSelectedDatabaseFile()
-{
+void DialogSelectCanDatabase::RemoveSelectedDatabaseFile() {
   int currentRow = ui_->dbcFilesList->currentRow();
-  if (currentRow >= 0)
-  {
+  if (currentRow >= 0) {
     QString location = ui_->dbcFilesList->item(currentRow)->text();
     database_locations_.removeAll(location);
     delete ui_->dbcFilesList->takeItem(currentRow);
@@ -135,7 +120,6 @@ void DialogSelectCanDatabase::RemoveSelectedDatabaseFile()
   }
 }
 
-void DialogSelectCanDatabase::UpdateButtonStates()
-{
+void DialogSelectCanDatabase::UpdateButtonStates() {
   ui_->removeDatabaseButton->setEnabled(ui_->dbcFilesList->currentRow() >= 0);
 }

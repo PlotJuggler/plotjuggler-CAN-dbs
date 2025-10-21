@@ -59,55 +59,51 @@
 
 QT_BEGIN_NAMESPACE
 
-namespace Ui
-{
-    class ConnectDialog;
+namespace Ui {
+class ConnectDialog;
 }
 
 QT_END_NAMESPACE
 
-class ConnectDialog : public QDialog
-{
-    Q_OBJECT
+class ConnectDialog : public QDialog {
+  Q_OBJECT
 
 public:
-    typedef QPair<QCanBusDevice::ConfigurationKey, QVariant> ConfigurationItem;
+  typedef QPair<QCanBusDevice::ConfigurationKey, QVariant> ConfigurationItem;
 
-    struct Settings
-    {
-        QString backendName;
-        QString deviceInterfaceName;
-        QStringList canDatabaseLocations;
-        QList<ConfigurationItem> configurations;
-        bool useConfigurationEnabled = false;
-        CanFrameProcessor::CanProtocol protocol = CanFrameProcessor::RAW;
-        bool use_enhanced_metadata = true;
-    };
+  struct Settings {
+    QString backendName;
+    QString deviceInterfaceName;
+    QStringList canDatabaseLocations;
+    QList<ConfigurationItem> configurations;
+    bool useConfigurationEnabled = false;
+    CanFrameProcessor::CanProtocol protocol = CanFrameProcessor::RAW;
+    bool use_enhanced_metadata = true;
+  };
 
-    explicit ConnectDialog(QWidget *parent = nullptr);
-    ~ConnectDialog();
+  explicit ConnectDialog(QWidget* parent = nullptr);
+  ~ConnectDialog();
 
-    Settings settings() const;
-    void setDatabaseSettings(const QStringList &locations,
-                             CanFrameProcessor::CanProtocol protocol,
-                             bool use_enhanced_metadata);
-    void applySettings(const Settings &settings);
+  Settings settings() const;
+  void setDatabaseSettings(const QStringList& locations, CanFrameProcessor::CanProtocol protocol,
+                           bool use_enhanced_metadata);
+  void applySettings(const Settings& settings);
 
 private slots:
-    void backendChanged(const QString &backend);
-    void interfaceChanged(const QString &interface);
-    void ok();
+  void backendChanged(const QString& backend);
+  void interfaceChanged(const QString& interface);
+  void ok();
 
 private:
-    QString configurationValue(QCanBusDevice::ConfigurationKey key);
-    void updateSettings();
-    void importDatabaseLocation();
-    void loadSettings();
-    void saveSettings();
+  QString configurationValue(QCanBusDevice::ConfigurationKey key);
+  void updateSettings();
+  void importDatabaseLocation();
+  void loadSettings();
+  void saveSettings();
 
-    Ui::ConnectDialog *m_ui = nullptr;
-    Settings m_currentSettings;
-    QList<QCanBusDeviceInfo> m_interfaces;
+  Ui::ConnectDialog* m_ui = nullptr;
+  Settings m_currentSettings;
+  QList<QCanBusDeviceInfo> m_interfaces;
 };
 
-#endif // CONNECTDIALOG_H
+#endif  // CONNECTDIALOG_H

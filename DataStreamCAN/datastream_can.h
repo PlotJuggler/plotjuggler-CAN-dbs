@@ -1,18 +1,17 @@
 #pragma once
 
-#include <QtPlugin>
+#include <QAction>
 #include <QCanBus>
 #include <QCanBusFrame>
-#include <QAction>
+#include <QtPlugin>
 #include <memory>
 
 #include <PlotJuggler/datastreamer_base.h>
 
-#include "connectdialog.h"
 #include "../PluginsCommonCAN/CanFrameProcessor.h"
+#include "connectdialog.h"
 
-class DataStreamCAN : public PJ::DataStreamer
-{
+class DataStreamCAN : public PJ::DataStreamer {
   Q_OBJECT
   Q_PLUGIN_METADATA(IID "facontidavide.PlotJuggler3.DataStreamer")
   Q_INTERFACES(PJ::DataStreamer)
@@ -21,24 +20,22 @@ public:
   DataStreamCAN();
   ~DataStreamCAN() override;
 
-  bool start(QStringList *pre_selected_sources = nullptr) override;
+  bool start(QStringList* pre_selected_sources = nullptr) override;
   void shutdown() override;
   bool isRunning() const override;
 
-  const char *name() const override
-  {
+  const char* name() const override {
     return "CAN Streamer";
   }
 
-  bool isDebugPlugin() override
-  {
+  bool isDebugPlugin() override {
     return false;
   }
 
-  bool xmlSaveState(QDomDocument &doc, QDomElement &parent_element) const override;
-  bool xmlLoadState(const QDomElement &parent_element) override;
+  bool xmlSaveState(QDomDocument& doc, QDomElement& parent_element) const override;
+  bool xmlLoadState(const QDomElement& parent_element) override;
 
-  const std::vector<QAction *> &availableActions() override;
+  const std::vector<QAction*>& availableActions() override;
 
 private slots:
   void connectCanInterface();
@@ -55,7 +52,7 @@ private:
   bool running_;
 
   // Configure gear icon
-  std::vector<QAction *> _available_actions;
+  std::vector<QAction*> _available_actions;
   // Display messages in the MainWindow's status bar
-  void displayStatusMessage(const QString &message);
+  void displayStatusMessage(const QString& message);
 };
