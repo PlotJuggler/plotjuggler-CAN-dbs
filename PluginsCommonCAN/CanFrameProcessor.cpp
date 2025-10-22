@@ -116,7 +116,7 @@ void CanFrameProcessor::InitializeSignalMetadata() {
   for (const dbcppp::IMessage& msg : can_network_->Messages()) {
     for (const dbcppp::ISignal& sig : msg.Signals()) {
       // Create a unique identifier for this signal
-      std::string signal_id { msg.Name() + "/" + sig.Name()};
+      std::string signal_id{ msg.Name() + "/" + sig.Name() };
       signal_metadata_[signal_id] = CreateSignalMetadata(sig);
     }
   }

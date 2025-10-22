@@ -5,7 +5,8 @@
 #include "ui_select_can_database.h"
 
 // Public
-DialogSelectCanDatabase::DialogSelectCanDatabase(const QStringList& existing_files, const CanFrameProcessor::CanProtocol saved_protocol, QWidget* parent)
+DialogSelectCanDatabase::DialogSelectCanDatabase(const QStringList& existing_files,
+                                                 const CanFrameProcessor::CanProtocol saved_protocol, QWidget* parent)
   : QDialog(parent)
   , ui_(new Ui::DialogSelectCanDatabase)
   , database_locations_(existing_files)
