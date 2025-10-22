@@ -116,18 +116,7 @@ void CanFrameProcessor::InitializeSignalMetadata() {
   for (const dbcppp::IMessage& msg : can_network_->Messages()) {
     for (const dbcppp::ISignal& sig : msg.Signals()) {
       // Create a unique identifier for this signal
-      std::string signal_id;
-
-      if (protocol_ == CanProtocol::RAW) {
-        signal_id = msg.Name() + "/" + sig.Name();
-      }
-      // Untested
-      else if (protocol_ == CanProtocol::NMEA2K || protocol_ == CanProtocol::J1939) {
-        uint32_t pgn = PGN_FROM_FRAME_ID(msg.Id());
-        signal_id = (protocol_ == CanProtocol::NMEA2K ? "nmea2k_msg/" : "j1939_msg/") + msg.Name() + "/" +
-                    std::to_string(pgn) + "/" + sig.Name();
-      }
-
+      std::string signal_id { msg.Name() + "/" + sig.Name()};
       signal_metadata_[signal_id] = CreateSignalMetadata(sig);
     }
   }
@@ -317,6 +306,28 @@ void CanFrameProcessor::ForwardN2kSignalsToPlot(const N2kMsgInterface& n2k_msg) 
     const dbcppp::IMessage* msg = messages_iter->second;
     // qCritical() << "msg_name:" << QString::fromStdString(msg->Name());
     for (const dbcppp::ISignal& sig : msg->Signals()) {
+      // Create unique signal identifier for metadata lookup
+      std::string signal_id = msg->Name() + "/" + sig.Name();
+      // Check signal metadata directly for enum values
+      auto metadata_it = signal_metadata_.find(signal_id);
+      // Format signal name based on metadata preferences
+      std::string signal_name;
+      if (use_enhanced_metadata_) {
+        std::stringstream name;
+        name << sig.Name();
+
+        // Add unit if available with escaped slashes
+        if (!sig.Unit().empty()) {
+          std::string unit = sig.Unit();
+          unit = std::regex_replace(unit, std::regex("/"), "\\");
+          name << " (" << unit << ")";
+        }
+        signal_name = name.str();
+      }
+      else {
+        signal_name = sig.Name();
+      }
+
       const dbcppp::ISignal* mux_sig = msg->MuxSignal();
       if (sig.MultiplexerIndicator() != dbcppp::ISignal::EMultiplexer::MuxValue ||
           (mux_sig && (mux_sig->Decode(n2k_msg.GetDataPtr()) == sig.MultiplexerSwitchValue()))) {
@@ -328,7 +339,7 @@ void CanFrameProcessor::ForwardN2kSignalsToPlot(const N2kMsgInterface& n2k_msg) 
                         .arg(protocol_prefix, QString::fromStdString(msg->Name()),
                              QString("%1").arg(n2k_msg.GetPgn(), 4, 16, QLatin1Char('0')).toUpper(),
                              QString("%1").arg(n2k_msg.GetSourceAddr(), 2, 16, QLatin1Char('0')).toUpper(),
-                             destination_qstr, QString::fromStdString(sig.Name()))
+                             destination_qstr, QString::fromStdString(signal_name))
                         .toStdString();
         }
         else {
@@ -336,7 +347,7 @@ void CanFrameProcessor::ForwardN2kSignalsToPlot(const N2kMsgInterface& n2k_msg) 
                         .arg(protocol_prefix, QString::fromStdString(msg->Name()),
                              QString("%1").arg(n2k_msg.GetPgn(), 5, 16, QLatin1Char('0')).toUpper(),
                              QString("%1").arg(n2k_msg.GetSourceAddr(), 2, 16, QLatin1Char('0')).toUpper(),
-                             QString::fromStdString(sig.Name()))
+                             QString::fromStdString(signal_name))
                         .toStdString();
         }
         // qCritical() << str.c_str();
