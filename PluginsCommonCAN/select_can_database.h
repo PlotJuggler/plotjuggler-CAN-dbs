@@ -1,44 +1,46 @@
 #ifndef DIALOG_SELECT_CAN_DATABASE_H
 #define DIALOG_SELECT_CAN_DATABASE_H
 
-#include <QDialog>
-#include <QString>
-#include <QFile>
-#include <QStringList>
 #include <QCheckBox>
-#include <QShortcut>
+#include <QDialog>
 #include <QDomDocument>
+#include <QFile>
+#include <QShortcut>
+#include <QString>
+#include <QStringList>
 #include "../PluginsCommonCAN/CanFrameProcessor.h"
 
 QT_BEGIN_NAMESPACE
-namespace Ui
-{
+namespace Ui {
 class DialogSelectCanDatabase;
 }
 QT_END_NAMESPACE
 
-
-class DialogSelectCanDatabase : public QDialog
-{
+class DialogSelectCanDatabase : public QDialog {
   Q_OBJECT
 
 public:
-  explicit DialogSelectCanDatabase(QWidget* parent = nullptr);
-  QString GetDatabaseLocation() const;
+  explicit DialogSelectCanDatabase(const QStringList& existing_files = QStringList(),
+                                   const CanFrameProcessor::CanProtocol saved_protocol = CanFrameProcessor::RAW,
+                                   QWidget* parent = nullptr);
+  QStringList GetDatabaseLocations() const;
   CanFrameProcessor::CanProtocol GetCanProtocol() const;
+  bool UseEnhancedMetadata() const;
 
   ~DialogSelectCanDatabase() override;
 
 private slots:
   void Ok();
   void Cancel();
+  void AddDatabaseFile();
+  void RemoveSelectedDatabaseFile();
+  void UpdateButtonStates();
 
 private:
   Ui::DialogSelectCanDatabase* ui_;
-  QString database_location_;
+  QStringList database_locations_;
   CanFrameProcessor::CanProtocol protocol_;
-
-  void ImportDatabaseLocation();
+  bool use_enhanced_metadata_ = true;
 };
 
 #endif  // DIALOG_SELECT_CAN_DATABASE_H

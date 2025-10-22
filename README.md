@@ -73,7 +73,7 @@ When you start CAN Streamer plugin, a connect dialog will be opened as in the fi
 
 RAW CAN signals are added to the plot in the following format:
 
-`can_frames/<FrameId,DecStr>/<SignalName>`
+`<MessageName> (<FrameId,HexStr>)/<SignalName> (<unit>)`
 
 NMEA2K signals are added to the plot in the following formats:
 

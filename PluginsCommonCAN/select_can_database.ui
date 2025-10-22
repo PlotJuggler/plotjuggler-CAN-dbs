@@ -1,80 +1,132 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>DialogSelectCanDatabase</class>
- <widget class="QDialog" name="DialogSelectCanDatabase">
-  <property name="geometry">
-   <rect>
-    <x>0</x>
-    <y>0</y>
-    <width>446</width>
-    <height>127</height>
-   </rect>
-  </property>
-  <property name="windowTitle">
-   <string>Connect</string>
-  </property>
-  <layout class="QGridLayout" name="gridLayout_2">
-   <item row="1" column="0">
-    <widget class="QPushButton" name="loadDatabaseButton">
-     <property name="text">
-      <string>Load CAN Database</string>
-     </property>
+    <class>DialogSelectCanDatabase</class>
+    <widget class="QDialog" name="DialogSelectCanDatabase">
+        <property name="geometry">
+            <rect>
+                <x>0</x>
+                <y>0</y>
+                <width>900</width>
+                <height>600</height>
+            </rect>
+        </property>
+        <property name="windowTitle">
+            <string>Select CAN Database</string>
+        </property>
+        <layout class="QVBoxLayout" name="verticalLayout">
+            <item>
+                <widget class="QGroupBox" name="selectProtocolBox">
+                    <property name="title">
+                        <string>Select Protocol</string>
+                    </property>
+                    <layout class="QHBoxLayout" name="horizontalLayout_2">
+                        <item>
+                            <widget class="QComboBox" name="protocolListBox" />
+                        </item>
+                    </layout>
+                </widget>
+            </item>
+            <item>
+                <widget class="QGroupBox" name="databasesBox">
+                    <property name="title">
+                        <string>Selected DBC Files</string>
+                    </property>
+                    <layout class="QVBoxLayout" name="verticalLayout_2">
+                        <item>
+                            <widget class="QListWidget" name="dbcFilesList">
+                                <property name="selectionMode">
+                                    <enum>QAbstractItemView::SingleSelection</enum>
+                                </property>
+                            </widget>
+                        </item>
+                        <item>
+                            <layout class="QHBoxLayout" name="databaseButtonsLayout">
+                                <item>
+                                    <widget class="QPushButton" name="addDatabaseButton">
+                                        <property name="text">
+                                            <string>Add DBC File</string>
+                                        </property>
+                                    </widget>
+                                </item>
+                                <item>
+                                    <widget class="QPushButton" name="removeDatabaseButton">
+                                        <property name="text">
+                                            <string>Remove Selected</string>
+                                        </property>
+                                        <property name="enabled">
+                                            <bool>false</bool>
+                                        </property>
+                                    </widget>
+                                </item>
+                            </layout>
+                        </item>
+                    </layout>
+                </widget>
+            </item>
+            <item>
+                <widget class="QGroupBox" name="optionsBox">
+                    <property name="title">
+                        <string>DBC Metadata Options</string>
+                    </property>
+                    <layout class="QVBoxLayout" name="optionsLayout">
+                        <item>
+                            <widget class="QCheckBox" name="enhancedMetadataCheckbox">
+                                <property name="text">
+                                    <string>Use enhanced metadata (enum values, min/max limits)</string>
+                                </property>
+                                <property name="checked">
+                                    <bool>true</bool>
+                                </property>
+                            </widget>
+                        </item>
+                    </layout>
+                </widget>
+            </item>
+            <item>
+                <layout class="QHBoxLayout" name="horizontalLayout">
+                    <item>
+                        <spacer name="horizontalSpacer">
+                            <property name="orientation">
+                                <enum>Qt::Horizontal</enum>
+                            </property>
+                            <property name="sizeHint" stdset="0">
+                                <size>
+                                    <width>96</width>
+                                    <height>20</height>
+                                </size>
+                            </property>
+                        </spacer>
+                    </item>
+                    <item>
+                        <widget class="QPushButton" name="cancelButton">
+                            <property name="text">
+                                <string>Cancel</string>
+                            </property>
+                            <property name="autoDefault">
+                                <bool>false</bool>
+                            </property>
+                        </widget>
+                    </item>
+                    <item>
+                        <widget class="QPushButton" name="okButton">
+                            <property name="text">
+                                <string>OK</string>
+                            </property>
+                            <property name="autoDefault">
+                                <bool>false</bool>
+                            </property>
+                            <property name="default">
+                                <bool>true</bool>
+                            </property>
+                            <property name="enabled">
+                                <bool>false</bool>
+                            </property>
+                        </widget>
+                    </item>
+                </layout>
+            </item>
+        </layout>
     </widget>
-   </item>
-   <item row="3" column="0" colspan="2">
-    <layout class="QHBoxLayout" name="horizontalLayout">
-     <item>
-      <spacer name="horizontalSpacer">
-       <property name="orientation">
-        <enum>Qt::Horizontal</enum>
-       </property>
-       <property name="sizeHint" stdset="0">
-        <size>
-         <width>96</width>
-         <height>20</height>
-        </size>
-       </property>
-      </spacer>
-     </item>
-     <item>
-      <widget class="QPushButton" name="cancelButton">
-       <property name="text">
-        <string>Cancel</string>
-       </property>
-       <property name="autoDefault">
-        <bool>false</bool>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QPushButton" name="okButton">
-       <property name="text">
-        <string>OK</string>
-       </property>
-       <property name="autoDefault">
-        <bool>false</bool>
-       </property>
-       <property name="default">
-        <bool>true</bool>
-       </property>
-      </widget>
-     </item>
-    </layout>
-   </item>
-   <item row="1" column="1">
-    <widget class="QGroupBox" name="selectProtocolBox">
-     <property name="title">
-      <string>Select Protocol</string>
-     </property>
-     <layout class="QHBoxLayout" name="horizontalLayout_2">
-      <item>
-       <widget class="QComboBox" name="protocolListBox"/>
-      </item>
-     </layout>
-    </widget>
-   </item>
-  </layout>
- </widget>
- <resources/>
- <connections/>
+    <resources />
+    <connections />
 </ui>

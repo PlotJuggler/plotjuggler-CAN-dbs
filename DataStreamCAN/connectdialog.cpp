@@ -48,203 +48,327 @@
 **
 ****************************************************************************/
 
+#include <QCanBus>
+#include <QDebug>
+#include <QSettings>
+
+#include "PluginsCommonCAN/select_can_database.h"
 #include "connectdialog.h"
 #include "ui_connectdialog.h"
-#include "../PluginsCommonCAN/select_can_database.h"
 
-#include <QCanBus>
+ConnectDialog::ConnectDialog(QWidget* parent) : QDialog(parent), m_ui(new Ui::ConnectDialog) {
+  m_ui->setupUi(this);
 
-ConnectDialog::ConnectDialog(QWidget *parent) : QDialog(parent),
-                                                m_ui(new Ui::ConnectDialog)
-{
-    m_ui->setupUi(this);
+  m_ui->errorFilterEdit->setValidator(new QIntValidator(0, 0x1FFFFFFFU, this));
 
-    m_ui->errorFilterEdit->setValidator(new QIntValidator(0, 0x1FFFFFFFU, this));
+  // Loopback options
+  m_ui->loopbackBox->addItem(tr("unspecified"), QVariant());
+  m_ui->loopbackBox->addItem(tr("false"), QVariant(false));
+  m_ui->loopbackBox->addItem(tr("true"), QVariant(true));
+  m_ui->loopbackBox->setCurrentIndex(1);
 
-    m_ui->loopbackBox->addItem(tr("unspecified"), QVariant());
-    m_ui->loopbackBox->addItem(tr("false"), QVariant(false));
-    m_ui->loopbackBox->addItem(tr("true"), QVariant(true));
-    m_ui->loopbackBox->setCurrentIndex(1);
+  // Receive Own options
+  m_ui->receiveOwnBox->addItem(tr("unspecified"), QVariant());
+  m_ui->receiveOwnBox->addItem(tr("false"), QVariant(false));
+  m_ui->receiveOwnBox->addItem(tr("true"), QVariant(true));
+  m_ui->receiveOwnBox->setCurrentIndex(1);
 
-    m_ui->receiveOwnBox->addItem(tr("unspecified"), QVariant());
-    m_ui->receiveOwnBox->addItem(tr("false"), QVariant(false));
-    m_ui->receiveOwnBox->addItem(tr("true"), QVariant(true));
-    m_ui->receiveOwnBox->setCurrentIndex(1);
+  // Bitrate options
+  m_ui->bitrateBox->addItem("125000", QVariant(125000));
+  m_ui->bitrateBox->addItem("250000", QVariant(250000));
+  m_ui->bitrateBox->addItem("500000", QVariant(500000));
+  m_ui->bitrateBox->addItem("1000000", QVariant(1000000));
+  m_ui->bitrateBox->setCurrentIndex(2);  // 500000 by default
 
-    m_ui->bitrateBox->addItem(tr("125000"), QVariant(true));
-    m_ui->bitrateBox->addItem(tr("250000"), QVariant(true));
-    m_ui->bitrateBox->addItem(tr("500000"), QVariant(true));
-    m_ui->bitrateBox->addItem(tr("1000000"), QVariant(true));
-    m_ui->bitrateBox->setCurrentIndex(2);
+  // Connect signals
+  connect(m_ui->okButton, &QPushButton::clicked, this, &ConnectDialog::ok);
+  connect(m_ui->cancelButton, &QPushButton::clicked, this, &QDialog::reject);
+  connect(m_ui->backendListBox, &QComboBox::currentTextChanged, this, &ConnectDialog::backendChanged);
+  connect(m_ui->loadDatabaseButton, &QPushButton::clicked, this, &ConnectDialog::importDatabaseLocation);
 
-    m_ui->okButton->setEnabled(false);
+  // Hide raw filter options
+  m_ui->rawFilterEdit->hide();
+  m_ui->rawFilterLabel->hide();
 
-    connect(m_ui->okButton, &QPushButton::clicked, this, &ConnectDialog::ok);
-    connect(m_ui->cancelButton, &QPushButton::clicked, this, &ConnectDialog::cancel);
-    connect(m_ui->backendListBox, &QComboBox::currentTextChanged,
-            this, &ConnectDialog::backendChanged);
-    connect(m_ui->interfaceListBox, &QComboBox::currentTextChanged,
-            this, &ConnectDialog::interfaceChanged);
-    connect(m_ui->loadDatabaseButton, &QPushButton::clicked,
-            this, &ConnectDialog::importDatabaseLocation);
-    m_ui->rawFilterEdit->hide();
-    m_ui->rawFilterLabel->hide();
+  // Populate backend list
+  QStringList backends = QCanBus::instance()->plugins();
+  if (!backends.isEmpty()) {
+    m_ui->backendListBox->addItems(backends);
+  }
+  else {
+    qWarning() << "No CAN backends found";
+  }
 
-    m_ui->backendListBox->addItems(QCanBus::instance()->plugins());
+  // Load settings from QSettings
+  loadSettings();
 
-    updateSettings();
+  // Enable OK button if we have DBC files
+  m_ui->okButton->setEnabled(!m_currentSettings.canDatabaseLocations.isEmpty());
 }
 
-ConnectDialog::~ConnectDialog()
-{
-    delete m_ui;
+ConnectDialog::~ConnectDialog() {
+  delete m_ui;
 }
 
-ConnectDialog::Settings ConnectDialog::settings() const
-{
-    return m_currentSettings;
-}
+void ConnectDialog::loadSettings() {
+  QSettings settings;
+  settings.beginGroup("DataStreamCAN");
 
-void ConnectDialog::backendChanged(const QString &backend)
-{
-    m_ui->interfaceListBox->clear();
-    m_interfaces = QCanBus::instance()->availableDevices(backend);
-    for (const QCanBusDeviceInfo &info : qAsConst(m_interfaces))
-        m_ui->interfaceListBox->addItem(info.name());
-}
-
-void ConnectDialog::interfaceChanged(const QString &interface)
-{
-
-    for (const QCanBusDeviceInfo &info : qAsConst(m_interfaces))
-    {
-        if (info.name() == interface)
-        {
-            break;
-        }
+  // Load backend
+  if (settings.contains("backend")) {
+    QString backend = settings.value("backend").toString();
+    int index = m_ui->backendListBox->findText(backend);
+    if (index >= 0) {
+      m_ui->backendListBox->setCurrentIndex(index);
     }
-}
+  }
 
-void ConnectDialog::ok()
-{
-    updateSettings();
-    accept();
-}
+  // Load interface
+  if (settings.contains("interface")) {
+    m_ui->interfaceListBox->setEditText(settings.value("interface").toString());
+  }
 
-void ConnectDialog::cancel()
-{
-    revertSettings();
-    reject();
-}
+  // Load loopback setting
+  if (settings.contains("loopback")) {
+    bool loopback = settings.value("loopback").toBool();
+    m_ui->loopbackBox->setCurrentIndex(loopback ? 2 : 1);
+  }
 
-QString ConnectDialog::configurationValue(QCanBusDevice::ConfigurationKey key)
-{
-    QVariant result;
+  // Load receive own setting
+  if (settings.contains("receive_own")) {
+    bool receiveOwn = settings.value("receive_own").toBool();
+    m_ui->receiveOwnBox->setCurrentIndex(receiveOwn ? 2 : 1);
+  }
 
-    for (const ConfigurationItem &item : qAsConst(m_currentSettings.configurations))
-    {
-        if (item.first == key)
-        {
-            result = item.second;
-            break;
-        }
+  // Load error filter
+  if (settings.contains("error_filter")) {
+    m_ui->errorFilterEdit->setText(settings.value("error_filter").toString());
+  }
+
+  // Load bitrate
+  if (settings.contains("bitrate")) {
+    QString bitrate = settings.value("bitrate").toString();
+    int bitrateIndex = m_ui->bitrateBox->findText(bitrate);
+    if (bitrateIndex >= 0) {
+      m_ui->bitrateBox->setCurrentIndex(bitrateIndex);
     }
+  }
 
-    if (result.isNull() && (key == QCanBusDevice::LoopbackKey ||
-                            key == QCanBusDevice::ReceiveOwnKey))
-    {
-        return tr("unspecified");
-    }
+  // Load CAN database files
+  int dbcCount = settings.beginReadArray("dbc_files");
+  QStringList dbcFiles;
+  for (int i = 0; i < dbcCount; ++i) {
+    settings.setArrayIndex(i);
+    dbcFiles.append(settings.value("path").toString());
+  }
+  settings.endArray();
 
-    return result.toString();
+  if (!dbcFiles.isEmpty()) {
+    m_currentSettings.canDatabaseLocations = dbcFiles;
+  }
+
+  // Load protocol
+  if (settings.contains("protocol")) {
+    QString protocol = settings.value("protocol").toString();
+    if (protocol == "RAW")
+      m_currentSettings.protocol = CanFrameProcessor::RAW;
+    else if (protocol == "NMEA2K")
+      m_currentSettings.protocol = CanFrameProcessor::NMEA2K;
+    else if (protocol == "J1939")
+      m_currentSettings.protocol = CanFrameProcessor::J1939;
+  }
+
+  settings.endGroup();
+
+  // Update the rest of the settings to match UI
+  updateSettings();
 }
 
-void ConnectDialog::revertSettings()
-{
-    m_ui->backendListBox->setCurrentText(m_currentSettings.backendName);
-    m_ui->interfaceListBox->setCurrentText(m_currentSettings.deviceInterfaceName);
+void ConnectDialog::saveSettings() {
+  QSettings settings;
+  settings.beginGroup("DataStreamCAN");
 
-    QString value = configurationValue(QCanBusDevice::LoopbackKey);
-    m_ui->loopbackBox->setCurrentText(value);
+  settings.setValue("backend", m_currentSettings.backendName);
+  settings.setValue("interface", m_currentSettings.deviceInterfaceName);
 
-    value = configurationValue(QCanBusDevice::ReceiveOwnKey);
-    m_ui->receiveOwnBox->setCurrentText(value);
+  for (const ConfigurationItem& item : m_currentSettings.configurations) {
+    if (item.first == QCanBusDevice::LoopbackKey) {
+      settings.setValue("loopback", item.second.toBool());
+    }
+    else if (item.first == QCanBusDevice::ReceiveOwnKey) {
+      settings.setValue("receive_own", item.second.toBool());
+    }
+    else if (item.first == QCanBusDevice::ErrorFilterKey) {
+      settings.setValue("error_filter", item.second.toString());
+    }
+    else if (item.first == QCanBusDevice::BitRateKey) {
+      settings.setValue("bitrate", item.second.toString());
+    }
+  }
 
-    value = configurationValue(QCanBusDevice::ErrorFilterKey);
-    m_ui->errorFilterEdit->setText(value);
+  // Save protocol
+  QString protocol;
+  switch (m_currentSettings.protocol) {
+    case CanFrameProcessor::RAW:
+      protocol = "RAW";
+      break;
+    case CanFrameProcessor::NMEA2K:
+      protocol = "NMEA2K";
+      break;
+    case CanFrameProcessor::J1939:
+      protocol = "J1939";
+      break;
+    default:
+      protocol = "RAW";
+  }
+  settings.setValue("protocol", protocol);
 
-    value = configurationValue(QCanBusDevice::BitRateKey);
-    m_ui->bitrateBox->setCurrentText(value);
+  // Save CAN database files
+  settings.beginWriteArray("dbc_files");
+  for (int i = 0; i < m_currentSettings.canDatabaseLocations.size(); ++i) {
+    settings.setArrayIndex(i);
+    settings.setValue("path", m_currentSettings.canDatabaseLocations.at(i));
+  }
+  settings.endArray();
+
+  settings.endGroup();
 }
 
-void ConnectDialog::updateSettings()
-{
-    m_currentSettings.backendName = m_ui->backendListBox->currentText();
-    m_currentSettings.deviceInterfaceName = m_ui->interfaceListBox->currentText();
-
-    if (m_currentSettings.useConfigurationEnabled)
-    {
-        m_currentSettings.configurations.clear();
-        // process LoopBack
-        if (m_ui->loopbackBox->currentIndex() != 0)
-        {
-            ConfigurationItem item;
-            item.first = QCanBusDevice::LoopbackKey;
-            item.second = m_ui->loopbackBox->currentData();
-            m_currentSettings.configurations.append(item);
-        }
-
-        // process ReceiveOwnKey
-        if (m_ui->receiveOwnBox->currentIndex() != 0)
-        {
-            ConfigurationItem item;
-            item.first = QCanBusDevice::ReceiveOwnKey;
-            item.second = m_ui->receiveOwnBox->currentData();
-            m_currentSettings.configurations.append(item);
-        }
-
-        // process error filter
-        if (!m_ui->errorFilterEdit->text().isEmpty())
-        {
-            QString value = m_ui->errorFilterEdit->text();
-            bool ok = false;
-            int dec = value.toInt(&ok);
-            if (ok)
-            {
-                ConfigurationItem item;
-                item.first = QCanBusDevice::ErrorFilterKey;
-                item.second = QVariant::fromValue(QCanBusFrame::FrameErrors(dec));
-                m_currentSettings.configurations.append(item);
-            }
-        }
-
-        // process raw filter list
-        if (!m_ui->rawFilterEdit->text().isEmpty())
-        {
-            //TODO current ui not sfficient to reflect this param
-        }
-
-        // process bitrate
-        const int bitrate = m_ui->bitrateBox->currentText().toInt();
-        if (bitrate > 0)
-        {
-            const ConfigurationItem item(QCanBusDevice::BitRateKey, QVariant(bitrate));
-            m_currentSettings.configurations.append(item);
-        }
-    }
+ConnectDialog::Settings ConnectDialog::settings() const {
+  return m_currentSettings;
 }
 
-void ConnectDialog::importDatabaseLocation()
-{
-    DialogSelectCanDatabase* dialog = new DialogSelectCanDatabase();
-    if (dialog->exec() != static_cast<int>(QDialog::Accepted))
-    {
-        ConnectDialog::cancel();
-        return;
-    }
+void ConnectDialog::setDatabaseSettings(const QStringList& locations, CanFrameProcessor::CanProtocol protocol,
+                                        bool use_enhanced_metadata) {
+  m_currentSettings.canDatabaseLocations = locations;
+  m_currentSettings.protocol = protocol;
+  m_currentSettings.use_enhanced_metadata = use_enhanced_metadata;
 
-    m_currentSettings.canDatabaseLocation = dialog->GetDatabaseLocation();
-    m_currentSettings.protocol = dialog->GetCanProtocol();
-    // Since file is gotten, enable ok button.
-    m_ui->okButton->setEnabled(true);
+  // Enable OK button if we have database files
+  m_ui->okButton->setEnabled(!locations.isEmpty());
+}
+
+void ConnectDialog::applySettings(const Settings& settings) {
+  m_currentSettings = settings;
+
+  // Set backend
+  int backendIndex = m_ui->backendListBox->findText(settings.backendName);
+  if (backendIndex >= 0) {
+    m_ui->backendListBox->setCurrentIndex(backendIndex);
+  }
+
+  // Set interface
+  backendChanged(settings.backendName);
+  int interfaceIndex = m_ui->interfaceListBox->findText(settings.deviceInterfaceName);
+  if (interfaceIndex >= 0) {
+    m_ui->interfaceListBox->setCurrentIndex(interfaceIndex);
+  }
+  else if (!settings.deviceInterfaceName.isEmpty()) {
+    m_ui->interfaceListBox->setEditText(settings.deviceInterfaceName);
+  }
+
+  // Set configuration parameters
+  for (const ConfigurationItem& item : settings.configurations) {
+    if (item.first == QCanBusDevice::LoopbackKey) {
+      bool loopback = item.second.toBool();
+      m_ui->loopbackBox->setCurrentIndex(loopback ? 2 : 1);
+    }
+    else if (item.first == QCanBusDevice::ReceiveOwnKey) {
+      bool receiveOwn = item.second.toBool();
+      m_ui->receiveOwnBox->setCurrentIndex(receiveOwn ? 2 : 1);
+    }
+    else if (item.first == QCanBusDevice::ErrorFilterKey) {
+      m_ui->errorFilterEdit->setText(item.second.toString());
+    }
+    else if (item.first == QCanBusDevice::BitRateKey) {
+      QString bitrate = item.second.toString();
+      int bitrateIndex = m_ui->bitrateBox->findText(bitrate);
+      if (bitrateIndex >= 0) {
+        m_ui->bitrateBox->setCurrentIndex(bitrateIndex);
+      }
+    }
+  }
+
+  // Enable OK button if we have database files
+  m_ui->okButton->setEnabled(!settings.canDatabaseLocations.isEmpty());
+}
+
+void ConnectDialog::backendChanged(const QString& backend) {
+  m_ui->interfaceListBox->clear();
+  m_interfaces = QCanBus::instance()->availableDevices(backend);
+  for (const QCanBusDeviceInfo& info : qAsConst(m_interfaces))
+    m_ui->interfaceListBox->addItem(info.name());
+}
+
+void ConnectDialog::ok() {
+  updateSettings();
+  saveSettings();
+  accept();
+}
+
+void ConnectDialog::updateSettings() {
+  m_currentSettings.backendName = m_ui->backendListBox->currentText();
+  m_currentSettings.deviceInterfaceName = m_ui->interfaceListBox->currentText();
+  m_currentSettings.useConfigurationEnabled = true;
+  m_currentSettings.configurations.clear();
+
+  // Process loopback setting
+  if (m_ui->loopbackBox->currentIndex() != 0) {
+    ConfigurationItem item;
+    item.first = QCanBusDevice::LoopbackKey;
+    item.second = m_ui->loopbackBox->currentData();
+    m_currentSettings.configurations.append(item);
+  }
+
+  // Process receive own setting
+  if (m_ui->receiveOwnBox->currentIndex() != 0) {
+    ConfigurationItem item;
+    item.first = QCanBusDevice::ReceiveOwnKey;
+    item.second = m_ui->receiveOwnBox->currentData();
+    m_currentSettings.configurations.append(item);
+  }
+
+  // Process error filter
+  if (!m_ui->errorFilterEdit->text().isEmpty()) {
+    QString value = m_ui->errorFilterEdit->text();
+    bool ok = false;
+    int dec = value.toInt(&ok);
+    if (ok) {
+      ConfigurationItem item;
+      item.first = QCanBusDevice::ErrorFilterKey;
+      item.second = QVariant::fromValue(QCanBusFrame::FrameErrors(dec));
+      m_currentSettings.configurations.append(item);
+    }
+  }
+
+  // Process bitrate setting
+  const int bitrate = m_ui->bitrateBox->currentText().toInt();
+  if (bitrate > 0) {
+    ConfigurationItem item;
+    item.first = QCanBusDevice::BitRateKey;
+    item.second = QVariant(bitrate);
+    m_currentSettings.configurations.append(item);
+  }
+
+  // Add support for flexible data rate (CAN FD)
+  ConfigurationItem fdItem;
+  fdItem.first = QCanBusDevice::CanFdKey;
+  fdItem.second = QVariant(true);
+  m_currentSettings.configurations.append(fdItem);
+}
+
+void ConnectDialog::importDatabaseLocation() {
+  DialogSelectCanDatabase* dialog = new DialogSelectCanDatabase(m_currentSettings.canDatabaseLocations, m_currentSettings.protocol);
+  if (dialog->exec() != static_cast<int>(QDialog::Accepted)) {
+    delete dialog;
+    return;
+  }
+
+  m_currentSettings.canDatabaseLocations = dialog->GetDatabaseLocations();
+  m_currentSettings.protocol = dialog->GetCanProtocol();
+  m_currentSettings.use_enhanced_metadata = dialog->UseEnhancedMetadata();
+
+  m_ui->okButton->setEnabled(!m_currentSettings.canDatabaseLocations.isEmpty());
+
+  delete dialog;
 }

@@ -1,13 +1,93 @@
 #include "CanFrameProcessor.h"
+#include <QDebug>
+#include <QMessageBox>
+#include <iomanip>
+#include <regex>
+#include <sstream>
 #include "N2kMsg/GenericFastPacket.h"
 
 CanFrameProcessor::CanFrameProcessor(std::ifstream& dbc_file, PJ::PlotDataMapRef& data_map, CanProtocol protocol)
-  : protocol_{ protocol }, data_map_{ data_map }
-{
-  can_network_ = dbcppp::INetwork::LoadDBCFromIs(dbc_file);
+  : protocol_{ protocol }, data_map_{ data_map } {
+  std::vector<std::ifstream> files;
+  files.push_back(std::move(dbc_file));
+  LoadAndMergeNetworks(files);
+  InitializeMessagesMap();
+  InitializeSignalMetadata();
+}
+
+CanFrameProcessor::CanFrameProcessor(const std::vector<std::ifstream>& dbc_files, PJ::PlotDataMapRef& data_map,
+                                     CanProtocol protocol)
+  : protocol_{ protocol }, data_map_{ data_map } {
+  LoadAndMergeNetworks(dbc_files);
+  InitializeMessagesMap();
+  InitializeSignalMetadata();
+}
+
+void CanFrameProcessor::LoadAndMergeNetworks(const std::vector<std::ifstream>& dbc_files) {
+  if (dbc_files.empty()) {
+    qWarning() << "No DBC files provided for loading";
+    return;
+  }
+
+  // Attempt to load the first file as the base network
+  try {
+    qDebug() << "Loading base DBC file...";
+    can_network_ = dbcppp::INetwork::LoadDBCFromIs(const_cast<std::ifstream&>(dbc_files[0]));
+
+    if (!can_network_) {
+      qWarning() << "Failed to load base DBC file";
+      return;
+    }
+
+    qDebug() << "Successfully loaded base DBC file";
+
+    // Merge additional files if they exist
+    for (size_t i = 1; i < dbc_files.size(); i++) {
+      qDebug() << "Loading additional DBC file" << i << "...";
+      auto additional_network = dbcppp::INetwork::LoadDBCFromIs(const_cast<std::ifstream&>(dbc_files[i]));
+
+      if (additional_network) {
+        try {
+          can_network_->Merge(std::move(additional_network));
+          qDebug() << "Successfully merged DBC file" << i;
+        }
+        catch (const std::exception& e) {
+          qWarning() << "Error merging DBC file" << i << ":" << e.what();
+          // Display a warning message to the user
+          QMessageBox::warning(nullptr, "DBC Merge Error",
+                               QString("Error merging DBC file %1: %2").arg(i).arg(e.what()));
+        }
+      }
+      else {
+        qWarning() << "Failed to load additional DBC file" << i;
+        // Display a warning message to the user
+        QMessageBox::warning(nullptr, "DBC Load Error", QString("Failed to load additional DBC file %1").arg(i));
+      }
+    }
+  }
+  catch (const std::exception& e) {
+    qCritical() << "Exception while loading/merging DBC files:" << e.what();
+    QMessageBox::critical(nullptr, "DBC Load Error", QString("Exception while loading DBC files: %1").arg(e.what()));
+  }
+
+  // Log summary
+  if (can_network_) {
+    qDebug() << "DBC network loaded with" << (can_network_->Messages_Size()) << "messages";
+  }
+  else {
+    qCritical() << "Failed to create valid CAN network from DBC files";
+  }
+}
+
+void CanFrameProcessor::InitializeMessagesMap() {
+  if (!can_network_) {
+    return;
+  }
+
   messages_.clear();
-  for (const dbcppp::IMessage& msg : can_network_->Messages())
-  {
+  fast_packet_pgns_set_.clear();
+
+  for (const dbcppp::IMessage& msg : can_network_->Messages()) {
     if (protocol_ == CanProtocol::RAW) {
       // When protocol is raw, use can_id from the dbc as the key for the messages
       messages_.insert(std::make_pair(msg.Id(), &msg));
@@ -16,10 +96,8 @@ CanFrameProcessor::CanFrameProcessor(std::ifstream& dbc_file, PJ::PlotDataMapRef
       // When protocol is not raw, use PGN as the key for the messages_
       messages_.insert(std::make_pair(PGN_FROM_FRAME_ID(msg.Id()), &msg));
       // For N2kMsgFast, MessageSize is certainly larger than 8 bytes
-      if (protocol_ == CanProtocol::NMEA2K)
-      {
-        if (msg.MessageSize() > 8)
-        {
+      if (protocol_ == CanProtocol::NMEA2K) {
+        if (msg.MessageSize() > 8) {
           fast_packet_pgns_set_.insert(PGN_FROM_FRAME_ID(msg.Id()));
         }
       }
@@ -27,82 +105,162 @@ CanFrameProcessor::CanFrameProcessor(std::ifstream& dbc_file, PJ::PlotDataMapRef
   }
 }
 
+void CanFrameProcessor::InitializeSignalMetadata() {
+  if (!can_network_) {
+    return;
+  }
+
+  signal_metadata_.clear();
+
+  // Iterate through all messages and signals to create metadata
+  for (const dbcppp::IMessage& msg : can_network_->Messages()) {
+    for (const dbcppp::ISignal& sig : msg.Signals()) {
+      // Create a unique identifier for this signal
+      std::string signal_id{ msg.Name() + "/" + sig.Name() };
+      signal_metadata_[signal_id] = CreateSignalMetadata(sig);
+    }
+  }
+}
+
+CanFrameProcessor::SignalMetadata CanFrameProcessor::CreateSignalMetadata(const dbcppp::ISignal& sig) {
+  SignalMetadata metadata;
+  metadata.name = sig.Name();
+  metadata.min = sig.Minimum();
+  metadata.max = sig.Maximum();
+  metadata.unit = sig.Unit();
+
+  // Extract value encoding descriptions (enums)
+  for (size_t i = 0; i < sig.ValueEncodingDescriptions_Size(); i++) {
+    const auto& encoding = sig.ValueEncodingDescriptions_Get(i);
+    metadata.value_encodings[encoding.Value()] = encoding.Description();
+  }
+
+  // Simple debug output
+  qDebug() << "Signal:" << QString::fromStdString(sig.Name()) << "Min:" << sig.Minimum() << "Max:" << sig.Maximum()
+           << "Unit:" << QString::fromStdString(sig.Unit()) << "Enums:" << sig.ValueEncodingDescriptions_Size();
+
+  // Print enum values in a readable format
+  if (!metadata.value_encodings.empty()) {
+    qDebug() << "Enum Values:";
+    for (const auto& [value, description] : metadata.value_encodings) {
+      qDebug() << "  " << value << ":" << QString::fromStdString(description);
+    }
+  }
+
+  return metadata;
+}
+
 bool CanFrameProcessor::ProcessCanFrame(const uint32_t frame_id, const uint8_t* payload_ptr, const size_t data_len,
-                                        double timestamp_secs)
-{
-  if (can_network_)
-  {
-    switch (protocol_)
-    {
-      case CanProtocol::RAW:
-      {
+                                        double timestamp_secs) {
+  if (can_network_) {
+    switch (protocol_) {
+      case CanProtocol::RAW: {
         return ProcessCanFrameRaw(frame_id, payload_ptr, data_len, timestamp_secs);
       }
-      case CanProtocol::NMEA2K:
-      {
+      case CanProtocol::NMEA2K: {
         return ProcessCanFrameN2k(frame_id, payload_ptr, data_len, timestamp_secs);
       }
-      case CanProtocol::J1939:
-      {
+      case CanProtocol::J1939: {
         return ProcessCanFrameJ1939(frame_id, payload_ptr, data_len, timestamp_secs);
       }
       default:
         return false;
     }
   }
-  else
-  {
+  else {
     return false;
   }
 }
 
 bool CanFrameProcessor::ProcessCanFrameRaw(const uint32_t frame_id, const uint8_t* data_ptr, const size_t data_len,
-                                           const double timestamp_secs)
-{
+                                           const double timestamp_secs) {
   auto messages_iter = messages_.find(frame_id);
-  if (messages_iter != messages_.end())
-  {
-    const dbcppp::IMessage* msg = messages_iter->second;
-    for (const dbcppp::ISignal& sig : msg->Signals())
-    {
-      const dbcppp::ISignal* mux_sig = msg->MuxSignal();
-      if (sig.MultiplexerIndicator() != dbcppp::ISignal::EMultiplexer::MuxValue ||
-          (mux_sig && (mux_sig->Decode(data_ptr) == sig.MultiplexerSwitchValue())))
-      {
-        double decoded_val = sig.RawToPhys(sig.Decode(data_ptr));
-        auto str = QString("can_frames/%1 (%2)/%3")
-                       .arg(QString::fromStdString(msg->Name()),
-                            QString::number(msg->Id()),
-                            QString::fromStdString(sig.Name()))
-                       .toStdString();
-        // qCritical() << str.c_str();
-        auto it = data_map_.numeric.find(str);
-        if (it != data_map_.numeric.end())
-        {
-          auto& plot = it->second;
-          plot.pushBack({ timestamp_secs, decoded_val });
-        }
-        else
-        {
-          auto& plot = data_map_.addNumeric(str)->second;
-          plot.pushBack({ timestamp_secs, decoded_val });
-        }
-      }
-    }
-    return true;
-  }
-  else
-  {
+  if (messages_iter == messages_.end()) {
     return false;
   }
+
+  const dbcppp::IMessage* msg = messages_iter->second;
+
+  const std::string base_name =
+      msg->Name() + " (0x" + (std::stringstream() << std::hex << std::uppercase << msg->Id()).str() + ")/";
+  const dbcppp::ISignal* mux_sig = msg->MuxSignal();
+
+  for (const dbcppp::ISignal& sig : msg->Signals()) {
+    // Skip signals that don't match multiplexer conditions
+    if (sig.MultiplexerIndicator() == dbcppp::ISignal::EMultiplexer::MuxValue &&
+        (!mux_sig || mux_sig->Decode(data_ptr) != sig.MultiplexerSwitchValue())) {
+      continue;
+    }
+
+    // Decode value
+    double raw_val = sig.Decode(data_ptr);
+    double decoded_val = sig.RawToPhys(raw_val);
+
+    // Format signal name based on metadata preferences
+    std::string signal_name;
+    if (use_enhanced_metadata_) {
+      std::stringstream name;
+      name << sig.Name();
+
+      // Add unit if available with escaped slashes
+      if (!sig.Unit().empty()) {
+        std::string unit = sig.Unit();
+        unit = std::regex_replace(unit, std::regex("/"), "\\");
+        name << " (" << unit << ")";
+      }
+      signal_name = name.str();
+    }
+    else {
+      signal_name = sig.Name();
+    }
+
+    std::string series_name = base_name + signal_name;
+
+    // Create unique signal identifier for metadata lookup
+    std::string signal_id = msg->Name() + "/" + sig.Name();
+
+    // Check signal metadata directly for enum values
+    auto metadata_it = signal_metadata_.find(signal_id);
+    bool has_enum_value = false;
+    std::string enum_str;
+
+    if (use_enhanced_metadata_ && metadata_it != signal_metadata_.end()) {
+      int64_t int_value = static_cast<int64_t>(decoded_val);
+      auto& value_encodings = metadata_it->second.value_encodings;
+      auto enum_it = value_encodings.find(int_value);
+
+      if (enum_it != value_encodings.end()) {
+        has_enum_value = true;
+        enum_str = enum_it->second;
+      }
+    }
+
+    if (has_enum_value) {
+      // We store 2 signal into (string & numeric series)
+      // MCU_HMI_ClngCrct_Aux_ActSt      => 16
+      // MCU_HMI_ClnqCrct_Aux_ActSt_enum_value => Fault
+
+      // Store the string representation for reference
+      auto& string_plot = data_map_.getOrCreateStringSeries(series_name + "_enum_value");
+      string_plot.pushBack({ timestamp_secs, enum_str });
+
+      // Also store numeric value for plotting
+      auto& numeric_plot = data_map_.getOrCreateNumeric(series_name);
+      numeric_plot.pushBack({ timestamp_secs, decoded_val });
+    }
+    else {
+      auto& plot = data_map_.getOrCreateNumeric(series_name);
+      plot.pushBack({ timestamp_secs, decoded_val });
+    }
+  }
+  return true;
 }
+
 bool CanFrameProcessor::ProcessCanFrameN2k(const uint32_t frame_id, const uint8_t* data_ptr, const size_t data_len,
-                                           const double timestamp_secs)
-{
+                                           const double timestamp_secs) {
   N2kMsgStandard n2k_msg(frame_id, data_ptr, data_len, timestamp_secs);
 
-  if (fast_packet_pgns_set_.count(n2k_msg.GetPgn()))
-  {
+  if (fast_packet_pgns_set_.count(n2k_msg.GetPgn())) {
     fp_generic_fast_packet_t fp_unpacked;
     fp_generic_fast_packet_unpack(&fp_unpacked, n2k_msg.GetDataPtr(), FP_GENERIC_FAST_PACKET_LENGTH);
 
@@ -110,88 +268,95 @@ bool CanFrameProcessor::ProcessCanFrameN2k(const uint32_t frame_id, const uint8_
     auto current_fp_it = fast_packets_map_.find(n2k_msg.GetFrameId());
     auto& current_fp = current_fp_it != fast_packets_map_.end() ? current_fp_it->second : null_n2k_fast_ptr_;
 
-    if (fp_unpacked.chunk_id == FP_GENERIC_FAST_PACKET_CHUNK_ID_FIRST_CHUNK_CHOICE)
-    {
+    if (fp_unpacked.chunk_id == FP_GENERIC_FAST_PACKET_CHUNK_ID_FIRST_CHUNK_CHOICE) {
       // First chunk's data is only 6 bytes
       fast_packets_map_[n2k_msg.GetFrameId()] = std::make_unique<N2kMsgFast>(
           n2k_msg.GetFrameId(), n2k_msg.GetDataPtr() + 2, 6ul, timestamp_secs, fp_unpacked.len_bytes);
     }
-    else
-    {
-      if (current_fp)
-      {
+    else {
+      if (current_fp) {
         current_fp->AppendData(n2k_msg.GetDataPtr() + 1, 7ul);
       }
     }
-    if (current_fp && current_fp->IsComplete())
-    {
+    if (current_fp && current_fp->IsComplete()) {
       ForwardN2kSignalsToPlot(*current_fp);
       current_fp.release();
       return true;
     }
   }
-  else
-  {
+  else {
     ForwardN2kSignalsToPlot(n2k_msg);
     return true;
   }
   return false;
 }
+
 bool CanFrameProcessor::ProcessCanFrameJ1939(const uint32_t frame_id, const uint8_t* data_ptr, const size_t data_len,
-                                             const double timestamp_secs)
-{
+                                             const double timestamp_secs) {
   N2kMsgStandard n2k_msg(frame_id, data_ptr, data_len, timestamp_secs);
   ForwardN2kSignalsToPlot(n2k_msg);
   return true;
 }
 
-void CanFrameProcessor::ForwardN2kSignalsToPlot(const N2kMsgInterface& n2k_msg)
-{
+void CanFrameProcessor::ForwardN2kSignalsToPlot(const N2kMsgInterface& n2k_msg) {
   auto protocol_prefix = protocol_ == CanProtocol::NMEA2K ? QString("nmea2k_msg") : QString("j1939_msg");
   // qCritical() << "frame_id:" << QString::number(dbc_id) << "\tcan_id:" << QString::number(n2k_msg.GetFrameId());
   auto messages_iter = messages_.find(n2k_msg.GetPgn());
-  if (messages_iter != messages_.end())
-  {
+  if (messages_iter != messages_.end()) {
     const dbcppp::IMessage* msg = messages_iter->second;
     // qCritical() << "msg_name:" << QString::fromStdString(msg->Name());
-    for (const dbcppp::ISignal& sig : msg->Signals())
-    {
+    for (const dbcppp::ISignal& sig : msg->Signals()) {
+      // Create unique signal identifier for metadata lookup
+      std::string signal_id = msg->Name() + "/" + sig.Name();
+      // Check signal metadata directly for enum values
+      auto metadata_it = signal_metadata_.find(signal_id);
+      // Format signal name based on metadata preferences
+      std::string signal_name;
+      if (use_enhanced_metadata_) {
+        std::stringstream name;
+        name << sig.Name();
+
+        // Add unit if available with escaped slashes
+        if (!sig.Unit().empty()) {
+          std::string unit = sig.Unit();
+          unit = std::regex_replace(unit, std::regex("/"), "\\");
+          name << " (" << unit << ")";
+        }
+        signal_name = name.str();
+      }
+      else {
+        signal_name = sig.Name();
+      }
+
       const dbcppp::ISignal* mux_sig = msg->MuxSignal();
       if (sig.MultiplexerIndicator() != dbcppp::ISignal::EMultiplexer::MuxValue ||
-          (mux_sig && (mux_sig->Decode(n2k_msg.GetDataPtr()) == sig.MultiplexerSwitchValue())))
-      {
+          (mux_sig && (mux_sig->Decode(n2k_msg.GetDataPtr()) == sig.MultiplexerSwitchValue()))) {
         double decoded_val = sig.RawToPhys(sig.Decode(n2k_msg.GetDataPtr()));
         std::string ts_name;
-        if (n2k_msg.GetPduFormat() < 240)
-        {
+        if (n2k_msg.GetPduFormat() < 240) {
           auto destination_qstr = QString("%1").arg(n2k_msg.GetPduSpecific(), 2, 16, QLatin1Char('0')).toUpper();
           ts_name = QString("%1/PDUF1/%2 (0x%3)/0x%4/0x%5/%6")
-                        .arg(protocol_prefix,
-                             QString::fromStdString(msg->Name()),
+                        .arg(protocol_prefix, QString::fromStdString(msg->Name()),
                              QString("%1").arg(n2k_msg.GetPgn(), 4, 16, QLatin1Char('0')).toUpper(),
                              QString("%1").arg(n2k_msg.GetSourceAddr(), 2, 16, QLatin1Char('0')).toUpper(),
-                             destination_qstr, QString::fromStdString(sig.Name()))
+                             destination_qstr, QString::fromStdString(signal_name))
                         .toStdString();
         }
-        else
-        {
+        else {
           ts_name = QString("%1/PDUF2/%2 (0x%3)/0x%4/%5")
-                        .arg(protocol_prefix,
-                             QString::fromStdString(msg->Name()),
+                        .arg(protocol_prefix, QString::fromStdString(msg->Name()),
                              QString("%1").arg(n2k_msg.GetPgn(), 5, 16, QLatin1Char('0')).toUpper(),
                              QString("%1").arg(n2k_msg.GetSourceAddr(), 2, 16, QLatin1Char('0')).toUpper(),
-                             QString::fromStdString(sig.Name()))
+                             QString::fromStdString(signal_name))
                         .toStdString();
         }
         // qCritical() << str.c_str();
         auto it = data_map_.numeric.find(ts_name);
-        if (it != data_map_.numeric.end())
-        {
+        if (it != data_map_.numeric.end()) {
           auto& plot = it->second;
           plot.pushBack({ n2k_msg.GetTimeStamp(), decoded_val });
         }
-        else
-        {
+        else {
           auto& plot = data_map_.addNumeric(ts_name)->second;
           plot.pushBack({ n2k_msg.GetTimeStamp(), decoded_val });
         }
