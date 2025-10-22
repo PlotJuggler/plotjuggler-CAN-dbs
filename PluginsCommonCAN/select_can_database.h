@@ -20,7 +20,9 @@ class DialogSelectCanDatabase : public QDialog {
   Q_OBJECT
 
 public:
-  explicit DialogSelectCanDatabase(const QStringList& existing_files = QStringList(), QWidget* parent = nullptr);
+  explicit DialogSelectCanDatabase(const QStringList& existing_files = QStringList(),
+                                   const CanFrameProcessor::CanProtocol saved_protocol = CanFrameProcessor::RAW,
+                                   QWidget* parent = nullptr);
   QStringList GetDatabaseLocations() const;
   CanFrameProcessor::CanProtocol GetCanProtocol() const;
   bool UseEnhancedMetadata() const;
