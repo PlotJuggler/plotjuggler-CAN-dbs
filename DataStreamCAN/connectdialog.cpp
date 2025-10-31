@@ -300,6 +300,12 @@ void ConnectDialog::backendChanged(const QString& backend) {
     m_ui->interfaceListBox->addItem(info.name());
 }
 
+void ConnectDialog::interfaceChanged(const QString& interface)
+{
+    // You can leave this empty if not needed, or add logic here.
+}
+
+
 void ConnectDialog::ok() {
   updateSettings();
   saveSettings();
