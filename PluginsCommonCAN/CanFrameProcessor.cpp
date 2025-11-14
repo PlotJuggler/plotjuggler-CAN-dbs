@@ -193,8 +193,7 @@ bool CanFrameProcessor::ProcessCanFrameRaw(const uint32_t frame_id, const uint8_
     }
 
     // Decode value
-    double raw_val = sig.Decode(data_ptr);
-    double decoded_val = sig.RawToPhys(raw_val);
+    double decoded_val = sig.RawToPhys(sig.Decode(data_ptr));
 
     // Format signal name based on metadata preferences
     std::string signal_name;
